@@ -1,0 +1,176 @@
+import { Pal } from "tokens.slint";
+import { XmbCategory } from "types.slint";
+import { Icons } from "icons.slint";
+import { Hint } from "widgets.slint";
+
+export component Xmb inherits Rectangle {
+    in property <[XmbCategory]> categories;
+    in property <int> cat;
+    in property <int> item;
+    in property <string> console-label;
+    in property <string> clock;
+    in property <string> date;
+    in property <length> u: 1px;
+
+    property <length> cross-y: root.height * 0.285;
+    property <length> anchor-x: root.width * 0.235;
+    property <length> cat-gap: 172 * root.u;
+    property <length> row-h: 96 * root.u;
+
+    // ── top bar ──
+    Text {
+        x: 56 * root.u;
+        y: 40 * root.u;
+        text: root.console-label;
+        font-size: 18 * root.u;
+        font-weight: 600;
+        letter-spacing: 5 * root.u;
+        color: Pal.text-dim;
+    }
+    Text {
+        x: root.width - 356 * root.u;
+        y: 30 * root.u;
+        width: 300 * root.u;
+        text: root.clock;
+        font-size: 34 * root.u;
+        font-weight: 300;
+        horizontal-alignment: right;
+        color: Pal.text;
+    }
+    Text {
+        x: root.width - 356 * root.u;
+        y: 72 * root.u;
+        width: 300 * root.u;
+        text: root.date;
+        font-size: 16 * root.u;
+        horizontal-alignment: right;
+        color: Pal.text-dim;
+    }
+
+    // ── the horizontal bar ──
+    for cg[ci] in root.categories: Rectangle {
+        property <int> d: ci - root.cat;
+        property <bool> foc: d == 0;
+        width: 140 * root.u;
+        height: 150 * root.u;
+        x: root.anchor-x + d * root.cat-gap + (d > 0 ? 64 * root.u : 0) - self.width / 2;
+        y: root.cross-y - 60 * root.u;
+        animate x { duration: 340ms; easing: ease-out; }
+
+        // glow under the active glyph
+        Rectangle {
+            width: 220 * root.u;
+            height: 220 * root.u;
+            x: (parent.width - self.width) / 2;
+            y: 8 * root.u - 70 * root.u;
+            background: @radial-gradient(circle, #ffffff40 0%, #ffffff00 70%);
+            opacity: foc ? 1 : 0;
+            animate opacity { duration: 300ms; }
+        }
+        Image {
+            source: Icons.by-name(cg.icon);
+            colorize: Pal.text;
+            width: (foc ? 80 : 56) * root.u;
+            height: (foc ? 80 : 56) * root.u;
+            x: (parent.width - self.width) / 2;
+            y: foc ? 0 : 12 * root.u;
+            opacity: foc ? 1 : 0.5;
+            animate width, height, y, opacity { duration: 300ms; easing: ease-out; }
+        }
+        Text {
+            y: 92 * root.u;
+            width: parent.width;
+            text: cg.name;
+            font-size: 20 * root.u;
+            font-weight: 500;
+            horizontal-alignment: center;
+            color: Pal.text;
+            opacity: foc ? 1 : 0;
+            animate opacity { duration: 260ms; }
+        }
+    }
+
+    // ── the vertical list under the active category ──
+    Rectangle {
+        x: 0;
+        y: root.cross-y + 70 * root.u;
+        width: root.width;
+        height: root.height - self.y - 104 * root.u;
+        clip: true;
+
+        for it[j] in root.categories[root.cat].items: Rectangle {
+            property <int> dist: j - root.item;
+            property <bool> foc: dist == 0;
+            x: root.anchor-x - 44 * root.u;
+            y: 30 * root.u + dist * root.row-h + (dist > 0 ? 26 * root.u : 0) - (dist < 0 ? 20 * root.u : 0);
+            width: root.width - self.x - 56 * root.u;
+            height: 88 * root.u;
+            opacity: dist < 0 ? 0 : (foc ? 1 : Math.max(0.0, 0.6 - dist * 0.14));
+            animate y, opacity { duration: 300ms; easing: ease-out; }
+
+            Rectangle {
+                width: (foc ? 88 : 68) * root.u;
+                height: (foc ? 88 : 68) * root.u;
+                x: (88 * root.u - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                border-radius: self.width * 0.22;
+                background: it.has-art ? #00000000 : #ffffff22;
+                border-width: 1px;
+                border-color: foc ? #ffffff80 : #ffffff30;
+                clip: true;
+                animate width, height { duration: 260ms; easing: ease-out; }
+
+                Image {
+                    visible: it.has-art;
+                    source: it.art;
+                    width: parent.width;
+                    height: parent.height;
+                    image-fit: cover;
+                }
+                Image {
+                    visible: !it.has-art;
+                    source: Icons.by-name(it.icon);
+                    colorize: Pal.text;
+                    width: parent.width * 0.54;
+                    height: parent.height * 0.54;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                }
+            }
+            VerticalLayout {
+                x: 116 * root.u;
+                width: parent.width - 116 * root.u;
+                height: parent.height;
+                alignment: center;
+                spacing: 4 * root.u;
+                Text {
+                    text: it.title;
+                    font-size: (foc ? 29 : 24) * root.u;
+                    font-weight: foc ? 500 : 400;
+                    color: Pal.text;
+                    overflow: elide;
+                    animate font-size { duration: 260ms; }
+                }
+                Text {
+                    visible: it.subtitle != "";
+                    text: it.subtitle;
+                    font-size: 18 * root.u;
+                    color: Pal.text-dim;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+
+    // ── key hints ──
+    HorizontalLayout {
+        y: root.height - 76 * root.u;
+        height: 36 * root.u;
+        alignment: center;
+        spacing: 40 * root.u;
+        Hint { key: "←  →"; label: "Category"; u: root.u; }
+        Hint { key: "↑  ↓"; label: "Select"; u: root.u; }
+        Hint { key: "Enter"; label: "Open"; u: root.u; }
+        Hint { key: "Esc"; label: "Back"; u: root.u; }
+    }
+}

@@ -3,18 +3,18 @@ import { Pal } from "tokens.slint";
 export component KeyChip inherits Rectangle {
     in property <string> label;
     in property <length> u: 1px;
-    height: 36 * u;
-    min-width: 36 * u;
-    border-radius: 10 * u;
-    background: #ffffff1c;
+    height: 34 * u;
+    min-width: 34 * u;
+    border-radius: 9 * u;
+    background: #ffffff1a;
     border-width: 1px;
-    border-color: #ffffff44;
+    border-color: #ffffff40;
     HorizontalLayout {
-        padding-left: 12 * u;
-        padding-right: 12 * u;
+        padding-left: 11 * u;
+        padding-right: 11 * u;
         Text {
             text: root.label;
-            font-size: 17 * u;
+            font-size: 16 * u;
             font-weight: 500;
             color: Pal.text;
             vertical-alignment: center;
@@ -31,7 +31,7 @@ export component Hint inherits HorizontalLayout {
     KeyChip { label: root.key; u: root.u; }
     Text {
         text: root.label;
-        font-size: 18 * u;
+        font-size: 17 * u;
         color: Pal.text-dim;
         vertical-alignment: center;
     }
@@ -42,10 +42,10 @@ export component Toast inherits Rectangle {
     in property <float> progress: -1;
     in property <bool> shown: false;
     in property <length> u: 1px;
-    width: 640 * u;
-    height: root.progress >= 0 ? 92 * u : 64 * u;
-    border-radius: 18 * u;
-    background: #05070fcc;
+    width: 600 * u;
+    height: root.progress >= 0 ? 88 * u : 60 * u;
+    border-radius: 16 * u;
+    background: #060912d8;
     border-width: 1px;
     border-color: #ffffff30;
     opacity: root.shown ? 1 : 0;
@@ -53,19 +53,20 @@ export component Toast inherits Rectangle {
 
     Text {
         x: 0;
-        y: root.progress >= 0 ? 16 * u : 0;
+        y: root.progress >= 0 ? 14 * u : 0;
         width: parent.width;
-        height: 32 * u;
+        height: root.progress >= 0 ? 34 * u : parent.height;
         text: root.text;
-        font-size: 20 * u;
+        font-size: 19 * u;
         font-weight: 500;
         color: Pal.text;
         horizontal-alignment: center;
         vertical-alignment: center;
     }
-    if root.progress >= 0: Rectangle {
+    Rectangle {
+        visible: root.progress >= 0;
         x: 32 * u;
-        y: 60 * u;
+        y: 58 * u;
         width: parent.width - 64 * u;
         height: 6 * u;
         border-radius: 3 * u;
@@ -75,7 +76,7 @@ export component Toast inherits Rectangle {
             height: parent.height;
             border-radius: 3 * u;
             background: #ffffff;
+            animate width { duration: 140ms; }
         }
     }
-    if root.progress < 0: Rectangle { }
 }

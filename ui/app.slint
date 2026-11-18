@@ -1,0 +1,175 @@
+import "../assets/fonts/Inter-Light.ttf";
+import "../assets/fonts/Inter-Regular.ttf";
+import "../assets/fonts/Inter-Medium.ttf";
+import "../assets/fonts/Inter-SemiBold.ttf";
+import "../assets/fonts/Inter-Bold.ttf";
+
+import { Pal } from "tokens.slint";
+import { ConsoleInfo, XmbCategory } from "types.slint";
+import { Launcher } from "launcher.slint";
+import { Xmb } from "xmb.slint";
+import { Toast } from "widgets.slint";
+
+export { ConsoleInfo, XmbCategory, XmbItem } from "types.slint";
+
+export component App inherits Window {
+    title: "T-Emulator";
+    default-font-family: "Inter";
+    background: Pal.ink;
+    preferred-width: 1280px;
+    preferred-height: 800px;
+    min-width: 760px;
+    min-height: 480px;
+
+    in property <[ConsoleInfo]> consoles;
+    in property <[XmbCategory]> categories;
+    in property <image> wave;
+    in property <string> clock;
+    in property <string> date;
+    in property <string> toast;
+    in property <float> toast-progress: -1;
+    in property <bool> toast-shown: false;
+
+    // 0 launcher, 1 power-on animation, 2 console menu
+    in-out property <int> mode: 0;
+    in-out property <int> console-idx: 0;
+    in-out property <int> cat-idx: 1;
+    in-out property <int> item-idx: 0;
+    in-out property <float> boot: 0;
+
+    callback power-on(int);
+    callback activate(int, int);
+    callback quit();
+    callback sfx(string);
+
+    property <length> u: Math.min(root.width / 1280px, root.height / 800px) * 1px;
+
+    function move(dx: int, dy: int) {
+        if (root.mode == 0 && dx != 0) {
+            let n = Math.max(0, Math.min(root.consoles.length - 1, root.console-idx + dx));
+            if (n != root.console-idx) {
+                root.console-idx = n;
+                root.sfx("tick");
+            }
+        } else if (root.mode == 2) {
+            if (dx != 0) {
+                let c = Math.max(0, Math.min(root.categories.length - 1, root.cat-idx + dx));
+                if (c != root.cat-idx) {
+                    root.cat-idx = c;
+                    root.item-idx = 0;
+                    root.sfx("tick");
+                }
+            } else if (dy != 0) {
+                let last = root.categories[root.cat-idx].items.length - 1;
+                let n = Math.max(0, Math.min(last, root.item-idx + dy));
+                if (n != root.item-idx) {
+                    root.item-idx = n;
+                    root.sfx("tick");
+                }
+            }
+        }
+    }
+
+    function confirm() {
+        if (root.mode == 0) {
+            root.boot = 0;
+            root.power-on(root.console-idx);
+        } else if (root.mode == 1) {
+            root.boot = 1;
+        } else {
+            root.activate(root.cat-idx, root.item-idx);
+        }
+    }
+
+    function back() {
+        if (root.mode == 2) {
+            root.mode = 0;
+            root.sfx("back");
+        } else if (root.mode == 0) {
+            root.quit();
+        }
+    }
+
+    Timer {
+        running: root.mode == 1;
+        interval: 16ms;
+        triggered => {
+            root.boot += 0.0105;
+            if (root.boot >= 1) {
+                root.mode = 2;
+            }
+        }
+    }
+
+    // animated background
+    Image {
+        source: root.wave;
+        width: parent.width;
+        height: parent.height;
+        image-fit: fill;
+        image-rendering: smooth;
+    }
+
+    if root.mode == 0: Launcher {
+        width: parent.width;
+        height: parent.height;
+        consoles: root.consoles;
+        idx: root.console-idx;
+        clock: root.clock;
+        date: root.date;
+        u: root.u;
+    }
+
+    if root.mode >= 1: Xmb {
+        width: parent.width;
+        height: parent.height;
+        categories: root.categories;
+        cat: root.cat-idx;
+        item: root.item-idx;
+        console-label: root.consoles[root.console-idx].name;
+        clock: root.clock;
+        date: root.date;
+        u: root.u;
+        opacity: root.mode == 2 ? 1 : Math.max(0, Math.min(1, (root.boot - 0.6) / 0.4));
+    }
+
+    // power-on veil
+    if root.mode == 1: Rectangle {
+        background: #000000;
+        opacity: root.boot < 0.12 ? root.boot / 0.12 : (root.boot < 0.55 ? 1 : Math.max(0, 1 - (root.boot - 0.55) / 0.45));
+        Text {
+            width: parent.width;
+            height: parent.height;
+            text: root.consoles[root.console-idx].name;
+            font-size: 64 * root.u;
+            font-weight: 300;
+            letter-spacing: 14 * root.u;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            color: #ffffff;
+            opacity: root.boot < 0.2 ? root.boot / 0.2 : (root.boot < 0.5 ? 1 : Math.max(0, 1 - (root.boot - 0.5) / 0.15));
+        }
+    }
+
+    Toast {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - 156 * root.u;
+        u: root.u;
+        text: root.toast;
+        progress: root.toast-progress;
+        shown: root.toast-shown;
+    }
+
+    FocusScope {
+        init => { self.focus(); }
+        key-pressed(ev) => {
+            if (ev.text == Key.LeftArrow) { root.move(-1, 0); return accept; }
+            if (ev.text == Key.RightArrow) { root.move(1, 0); return accept; }
+            if (ev.text == Key.UpArrow) { root.move(0, -1); return accept; }
+            if (ev.text == Key.DownArrow) { root.move(0, 1); return accept; }
+            if (ev.text == Key.Return || ev.text == " ") { root.confirm(); return accept; }
+            if (ev.text == Key.Escape || ev.text == Key.Backspace) { root.back(); return accept; }
+            return reject;
+        }
+    }
+}

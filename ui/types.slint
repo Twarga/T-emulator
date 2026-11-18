@@ -1,0 +1,22 @@
+export struct ConsoleInfo {
+    name: string,
+    full-name: string,
+    status: string,
+    kind: string,
+    available: bool,
+    accent: color,
+}
+
+export struct XmbItem {
+    title: string,
+    subtitle: string,
+    art: image,
+    has-art: bool,
+    icon: string,
+}
+
+export struct XmbCategory {
+    name: string,
+    icon: string,
+    items: [XmbItem],
+}

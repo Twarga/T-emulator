@@ -1,0 +1,21 @@
+export global Icons {
+    pure public function by-name(k: string) -> image {
+        if (k == "gamepad") { return @image-url("../assets/icons/gamepad.svg"); }
+        if (k == "gear") { return @image-url("../assets/icons/gear.svg"); }
+        if (k == "folder") { return @image-url("../assets/icons/folder.svg"); }
+        if (k == "refresh") { return @image-url("../assets/icons/refresh.svg"); }
+        if (k == "power") { return @image-url("../assets/icons/power.svg"); }
+        if (k == "info") { return @image-url("../assets/icons/info.svg"); }
+        if (k == "download") { return @image-url("../assets/icons/download.svg"); }
+        if (k == "music") { return @image-url("../assets/icons/music.svg"); }
+        if (k == "lock") { return @image-url("../assets/icons/lock.svg"); }
+        return @image-url("../assets/icons/disc.svg");
+    }
+
+    pure public function device(k: string) -> image {
+        if (k == "ps3") { return @image-url("../assets/icons/dev-ps3.svg"); }
+        if (k == "gc") { return @image-url("../assets/icons/dev-gc.svg"); }
+        if (k == "ps2") { return @image-url("../assets/icons/dev-ps2.svg"); }
+        return @image-url("../assets/icons/dev-psp.svg");
+    }
+}

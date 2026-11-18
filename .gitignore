@@ -2,8 +2,6 @@ target/
 *.o
 *.log
 .DS_Store
-
-
-# Added by cargo
-
-/target
+*.ppm
+t-emulator-v*
+t-emulator

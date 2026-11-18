@@ -1,16 +1,11 @@
-# T-Emulator — Dev / Run Notes
+# Dev notes
 
-## Build (tlab)
-ssh tlab 'source ~/.cargo/env && cd ~/t-emulator && cargo build --release'
-scp tlab:~/t-emulator/target/release/t-emulator ./t-emulator
+Build:        cargo build --release        (binary: target/release/t-emulator)
+Run:          ./t-emulator
+Test:         cargo test                   (drives the real UI with key events, no display)
+Screenshots:  cargo build --bin shot && ./target/debug/shot <launcher|launcher2|boot|boot2|xmb|xmb-settings|toast> out.png [w h]
+              (writes out.png.ppm; the UI is rendered headless so any screen can be inspected without a display)
 
-## Run (laptop)
-./t-emulator-v0.1
-- Pick PSP → Enter (bootsplash → XMB wave → games)
-- Games live in `~/Games/PSP/` (.iso/.cso/.pbp)
-- First power-on auto-downloads PPSSPP AppImage (~40MB) in background
-- Esc in XMB = back to picker
-
-## State
-- Config: `~/.config/t-emulator/config.toml`
-- Emulator: `~/.local/share/t-emulator/emulators/ppsspp/`
+State:        ~/.config/t-emulator/config.toml
+Emulators:    ~/.local/share/t-emulator/emulators/ppsspp/
+Games:        ~/Games/PSP  (.iso .cso .pbp)

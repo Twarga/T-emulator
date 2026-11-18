@@ -24,6 +24,8 @@ Layout:       src/launcher.rs  data builders for launcher pages
               src/pads.rs      gamepad auto-config: merges generic-pad binds
                                into controls.ini + ships SDL gamecontrollerdb
               src/covers.rs    box art lookup + libretro-thumbnails download
+              ui/errcard.slint modal error card (missing emu / missing file /
+                               no Vulkan / crash) — blocks input, action pills
               ui/app.slint     root: modes, nav state machine, overlays
               ui/launcher/     launcher pages (theme, widgets, topbar, home,
                                library, downloads, settings)

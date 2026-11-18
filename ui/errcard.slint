@@ -12,8 +12,6 @@ export component ErrCard inherits Rectangle {
     callback pick(int);
     callback cancel();
 
-    width: parent.width;
-    height: parent.height;
     background: #000000b0;
     TouchArea { clicked => { root.cancel(); } }
 
@@ -21,7 +19,7 @@ export component ErrCard inherits Rectangle {
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
         width: 460 * root.u;
-        height: 190 * root.u + (root.opts.length > 0 ? 0 : -52 * root.u);
+        height: 190 * root.u;
         border-radius: Lt.r-lg;
         background: Lt.surface;
         border-width: 1px;
@@ -46,9 +44,8 @@ export component ErrCard inherits Rectangle {
             max-height: 66 * root.u;
             overflow: elide;
         }
-        // actions row, right-aligned
+        // actions, right-aligned row
         for o[i] in root.opts: Rectangle {
-            // right-align the row: first opt lands leftmost
             x: parent.width - 32 * root.u - (root.opts.length - i) * 140 * root.u;
             y: parent.height - 62 * root.u;
             width: 128 * root.u;

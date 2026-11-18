@@ -5,7 +5,7 @@ use crate::config::Config;
 use crate::ini::Ini;
 use crate::launcher::{self, EmuInfo};
 use crate::{psp, scanner, App};
-use slint::{ModelRc, VecModel};
+use slint::{ModelRc, SharedString, VecModel};
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::Sender;
@@ -44,7 +44,7 @@ pub enum Ev {
     Installed(Result<String, String>),
     Latest(Option<String>),
     VersionProbe(Option<String>),
-    GameExit,
+    GameExit(Option<i32>),
     FolderPicked(Option<PathBuf>),
     Key(char),
     ToastHide,
@@ -100,7 +100,7 @@ pub fn refresh(app: &App, st: &St) {
     };
     app.set_err_title(et.into());
     app.set_err_msg(em.into());
-    app.set_err_opts(model(eo));
+    app.set_err_opts(model(eo.into_iter().map(SharedString::from).collect()));
     app.set_attn(matches!(st.emu.state(), launcher::EmuState::Install | launcher::EmuState::Update));
 
     let ini = Ini::load(&psp::ini_path()).unwrap_or_default();

@@ -10,7 +10,7 @@ use t_emulator::config::Config;
 use t_emulator::covers;
 use t_emulator::pads;
 use t_emulator::launcher::{self, EmuInfo};
-use t_emulator::state::{model, refresh, toast, Ev, St};
+use t_emulator::state::{model, refresh, toast, ErrAct, ErrCardData, Ev, St};
 use t_emulator::{ini::Ini, psp, scanner, *};
 
 mod sounds;
@@ -99,6 +99,7 @@ fn main() -> anyhow::Result<()> {
         query: String::new(),
         psp_setting: String::new(),
         pad_name: pad_name0,
+        err: None,
     }));
     st.borrow_mut().games = {
         let dir = st.borrow().dir.clone();
@@ -225,10 +226,18 @@ fn main() -> anyhow::Result<()> {
                             }
                         }
                     }
-                    Ev::GameExit => {
+                    Ev::GameExit(code) => {
                         b.playing = false;
-
                         app.set_playing_title("".into());
+                        if let Some(c) = code {
+                            if c != 0 {
+                                b.err = Some(ErrCardData::new(
+                                    "PPSSPP crashed",
+                                    &format!("The emulator exited with code {c}. Try another backend or update PPSSPP."),
+                                    &[(ErrAct::SwitchGl, "Use OpenGL"), (ErrAct::Dismiss, "Dismiss")],
+                                ));
+                            }
+                        }
                     }
                     Ev::FolderPicked(Some(d)) => {
                         b.dir = d.clone();
@@ -612,6 +621,55 @@ fn main() -> anyhow::Result<()> {
         });
     }
 
+    // error card buttons
+    {
+        let weak = app.as_weak();
+        let st = st.clone();
+        let tx = tx.clone();
+        app.on_err_pick(move |i| {
+            let Some(app) = weak.upgrade() else { return };
+            let mut b = st.borrow_mut();
+            let Some(err) = b.err.take() else { app.set_err_title("".into()); return };
+            let Some(act) = err.acts.get(i as usize).copied() else { return };
+            match act {
+                ErrAct::Rescan => {
+                    b.games = scanner::scan(&b.dir);
+                    refresh(&app, &b);
+                }
+                ErrAct::Downloads => {
+                    app.set_tab(2);
+                    app.set_zone(0);
+                    refresh(&app, &b);
+                }
+                ErrAct::SwitchGl => {
+                    let path = psp::ini_path();
+                    let mut ini = Ini::load(&path).unwrap_or_default();
+                    psp::apply("backend", 0, &mut ini);
+                    let _ = ini.save(&path);
+                    refresh(&app, &b);
+                    toast(&app, "Switched to OpenGL", -1.0, &tx, 2000);
+                }
+                ErrAct::LaunchAnyway => {
+                    // re-fire the last intended launch is overkill; user picks the tile again
+                    refresh(&app, &b);
+                }
+                ErrAct::Dismiss => {
+                    refresh(&app, &b);
+                }
+            }
+        });
+    }
+    {
+        let weak = app.as_weak();
+        let st = st.clone();
+        app.on_err_cancel(move || {
+            let Some(app) = weak.upgrade() else { return };
+            let mut b = st.borrow_mut();
+            b.err = None;
+            refresh(&app, &b);
+        });
+    }
+
     app.run()?;
     Ok(())
 }
@@ -619,31 +677,70 @@ fn main() -> anyhow::Result<()> {
 fn launch_game(app: &App, st: &mut St, gi: usize, tx: &Sender<Ev>) {
     let emu = Ppsspp::new();
     let Some(g) = st.games.get(gi).cloned() else { return };
+
+    // 1. emulator missing → point at Downloads
     if !emu.is_installed() {
-        if !st.emu.installing {
-            toast(app, "PSP emulator is not installed — see the Downloads tab", -1.0, tx, 2800);
-        } else {
+        if st.emu.installing {
             toast(app, "PSP emulator is still installing…", -1.0, tx, 2200);
+        } else {
+            st.err = Some(ErrCardData::new(
+                "PSP emulator not installed",
+                "PPSSPP is needed to run PSP games. Install it from the Downloads tab.",
+                &[(ErrAct::Downloads, "Downloads"), (ErrAct::Dismiss, "Dismiss")],
+            ));
+            refresh(app, st);
         }
         return;
     }
     if st.playing {
         return;
     }
+
+    // 2. game file gone → offer a rescan
+    if !g.path.exists() {
+        st.err = Some(ErrCardData::new(
+            "Game file not found",
+            &format!("{} is gone — moved, renamed, or on an unplugged drive.", g.path.display()),
+            &[(ErrAct::Rescan, "Rescan"), (ErrAct::Dismiss, "Dismiss")],
+        ));
+        refresh(app, st);
+        return;
+    }
+
+    // 3. Vulkan selected but no driver → warn once, offer to switch
+    {
+        let ini = Ini::load(&psp::ini_path()).unwrap_or_default();
+        if psp::backend_is_vulkan(&ini) && !psp::vulkan_available() {
+            st.err = Some(ErrCardData::new(
+                "No Vulkan driver",
+                "PPSSPP is set to Vulkan but this system has no Vulkan driver. Games may crash or not start.",
+                &[(ErrAct::SwitchGl, "Use OpenGL"), (ErrAct::LaunchAnyway, "Play anyway"), (ErrAct::Dismiss, "Dismiss")],
+            ));
+            refresh(app, st);
+            return;
+        }
+    }
+
     match emu.launch(&g.path, st.cfg.fullscreen) {
         Ok(mut child) => {
             st.playing = true;
-
             app.set_playing_title(g.title.clone().into());
             st.cfg.played(g.path.clone());
             let _ = st.cfg.save();
             sounds::play("select");
             let tx = tx.clone();
             std::thread::spawn(move || {
-                let _ = child.wait();
-                let _ = tx.send(Ev::GameExit);
+                let status = child.wait().ok().and_then(|s| s.code());
+                let _ = tx.send(Ev::GameExit(status));
             });
         }
-        Err(e) => toast(app, &format!("Could not start PPSSPP: {e}"), -1.0, tx, 4000),
+        Err(e) => {
+            st.err = Some(ErrCardData::new(
+                "PPSSPP did not start",
+                &e.to_string(),
+                &[(ErrAct::Dismiss, "Dismiss")],
+            ));
+            refresh(app, st);
+        }
     }
 }

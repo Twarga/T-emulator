@@ -62,7 +62,7 @@ export component Home inherits Rectangle {
         border-width: 2px;
         border-color: i + root.r == root.sel ? Lt.accent : #00000000;
         opacity: c.available ? 1 : 0.7;
-        animate background, y, height { duration: 200ms; }
+        animate background, y, height { duration: 160ms; }
         TouchArea { clicked => { root.pick(i + root.r); } }
 
         Image {

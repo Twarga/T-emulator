@@ -7,7 +7,7 @@ use slint::platform::{Platform, WindowAdapter};
 use slint::{ComponentHandle, PhysicalSize, Rgb8Pixel, SharedPixelBuffer};
 use std::cell::RefCell;
 use std::rc::Rc;
-use t_emulator::state::{demo, model, refresh};
+use t_emulator::state::{demo, model, refresh, ErrAct, ErrCardData};
 use t_emulator::*;
 
 struct P(Rc<MinimalSoftwareWindow>);
@@ -84,6 +84,29 @@ fn main() {
             app.set_tab(2);
             app.set_zone(1);
             app.set_dl_idx(0);
+        }
+        "err" => {
+            app.set_zone(1);
+            let mut b = st.borrow_mut();
+            b.err = Some(ErrCardData::new(
+                "No Vulkan driver",
+                "PPSSPP is set to Vulkan but this system has no Vulkan driver. Games may crash or not start.",
+                &[(ErrAct::SwitchGl, "Use OpenGL"), (ErrAct::LaunchAnyway, "Play anyway"), (ErrAct::Dismiss, "Dismiss")],
+            ));
+            drop(b);
+            refresh(&app, &st.borrow());
+        }
+        "err-missing" => {
+            app.set_tab(2);
+            app.set_zone(1);
+            let mut b = st.borrow_mut();
+            b.err = Some(ErrCardData::new(
+                "PSP emulator not installed",
+                "PPSSPP is needed to run PSP games. Install it from the Downloads tab.",
+                &[(ErrAct::Downloads, "Downloads"), (ErrAct::Dismiss, "Dismiss")],
+            ));
+            drop(b);
+            refresh(&app, &st.borrow());
         }
         "downloads-busy" => {
             app.set_tab(2);

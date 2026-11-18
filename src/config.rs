@@ -18,6 +18,12 @@ pub struct Config {
     /// Check for emulator updates when the launcher opens.
     #[serde(default = "def_true")]
     pub update_check: bool,
+    /// Write pad bindings into each emulator's config when one is plugged in.
+    #[serde(default = "def_true")]
+    pub pad_auto: bool,
+    /// Last gamepad seen (name); shown in Settings after restarts.
+    #[serde(default)]
+    pub pad_name: Option<String>,
     /// Recently played games, newest first (path, unix timestamp).
     #[serde(default)]
     pub recents: Vec<(PathBuf, u64)>,
@@ -33,6 +39,8 @@ impl Default for Config {
             sounds: true,
             fullscreen: true,
             update_check: true,
+            pad_auto: true,
+            pad_name: None,
             recents: Vec::new(),
             emu_versions: Default::default(),
         }

@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use t_emulator::adapters::ppsspp::Ppsspp;
 use t_emulator::config::Config;
 use t_emulator::covers;
+use t_emulator::pads;
 use t_emulator::launcher::{self, EmuInfo};
 use t_emulator::state::{model, refresh, toast, Ev, St};
 use t_emulator::{ini::Ini, psp, scanner, *};
@@ -79,6 +80,7 @@ fn main() -> anyhow::Result<()> {
 
     let installed = Ppsspp::new().is_installed();
     let version = cfg.emu_versions.get("ppsspp").cloned();
+    let pad_name0 = cfg.pad_name.clone();
     let st = Rc::new(RefCell::new(St {
         cfg,
         dir,
@@ -96,6 +98,7 @@ fn main() -> anyhow::Result<()> {
         playing: false,
         query: String::new(),
         psp_setting: String::new(),
+        pad_name: pad_name0,
     }));
     st.borrow_mut().games = {
         let dir = st.borrow().dir.clone();
@@ -239,6 +242,17 @@ fn main() -> anyhow::Result<()> {
                         });
                     }
                     Ev::CoversDone => {} // refresh() below re-reads cover paths
+                    Ev::Pad(name) => {
+                        let was = b.pad_name.clone();
+                        b.pad_name = name.clone();
+                        b.cfg.pad_name = name.clone();
+                        let _ = b.cfg.save();
+                        match (&was, &name) {
+                            (None, Some(n)) => toast(&app, &format!("{n} connected — configured for PSP"), -1.0, &txp, 2600),
+                            (Some(_), None) => toast(&app, "Gamepad disconnected", -1.0, &txp, 1800),
+                            _ => {}
+                        }
+                    }
                     Ev::ToastHide => app.set_toast_shown(false),
                 }
                 refresh(&app, &b);
@@ -267,6 +281,12 @@ fn main() -> anyhow::Result<()> {
             };
             let mut repeat = std::collections::HashMap::new();
             let mut last = std::time::Instant::now();
+            // announce pads already connected
+            if let Some((_, p)) = g.gamepads().next() {
+                let name = p.name().to_string();
+                t_emulator::pads::ensure_all(&name);
+                let _ = tx.send(Ev::Pad(Some(name)));
+            }
             loop {
                 while let Some(e) = g.next_event() {
                     use gilrs::EventType::*;
@@ -275,6 +295,14 @@ fn main() -> anyhow::Result<()> {
                             if let Some(c) = map(b) {
                                 let _ = tx.send(Ev::Key(c));
                             }
+                        }
+                        Connected => {
+                            let name = g.gamepad(e.id).name().to_string();
+                            t_emulator::pads::ensure_all(&name);
+                            let _ = tx.send(Ev::Pad(Some(name)));
+                        }
+                        Disconnected => {
+                            let _ = tx.send(Ev::Pad(None));
                         }
                         _ => {}
                     }
@@ -410,7 +438,7 @@ fn main() -> anyhow::Result<()> {
         app.on_set_act(move |i| {
             let Some(app) = weak.upgrade() else { return };
             let mut b = st.borrow_mut();
-            let rows = launcher::settings_rows(&b.cfg, &b.dir.display().to_string());
+            let rows = launcher::settings_rows(&b.cfg, &b.dir.display().to_string(), b.pad_name.as_deref());
             let Some(row) = rows.get(i as usize) else { return };
             match row.id.as_str() {
                 "folder" => pick_games_folder(tx.clone()),
@@ -429,6 +457,15 @@ fn main() -> anyhow::Result<()> {
                 "update-check" => {
                     b.cfg.update_check = !b.cfg.update_check;
                     save(&mut b);
+                }
+                "pad-auto" => {
+                    b.cfg.pad_auto = !b.cfg.pad_auto;
+                    save(&mut b);
+                    if b.cfg.pad_auto {
+                        let name = b.pad_name.clone().unwrap_or_else(|| "pad".into());
+                        pads::ensure_all(&name);
+                        toast(&app, "Gamepad bindings applied", -1.0, &tx, 1800);
+                    }
                 }
                 _ => {}
             }

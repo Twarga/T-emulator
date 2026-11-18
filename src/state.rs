@@ -21,6 +21,7 @@ pub enum Ev {
     Key(char),
     ToastHide,
     CoversDone,
+    Pad(Option<String>),
 }
 
 pub struct St {
@@ -33,6 +34,8 @@ pub struct St {
     pub query: String,
     /// setting id of the open PSP option sheet
     pub psp_setting: String,
+    /// currently connected gamepad name, if any
+    pub pad_name: Option<String>,
 }
 
 pub fn model<T: Clone + 'static>(v: Vec<T>) -> ModelRc<T> {
@@ -60,7 +63,7 @@ pub fn refresh(app: &App, st: &St) {
     app.set_recents(model(launcher::recent_cards(&st.cfg, &st.games)));
     app.set_games(model(launcher::game_tiles(&st.games, &st.query)));
     app.set_emus(model(launcher::emu_rows(&st.emu)));
-    app.set_settings(model(launcher::settings_rows(&st.cfg, &st.dir.display().to_string())));
+    app.set_settings(model(launcher::settings_rows(&st.cfg, &st.dir.display().to_string(), st.pad_name.as_deref())));
     app.set_attn(matches!(st.emu.state(), launcher::EmuState::Install | launcher::EmuState::Update));
 
     let ini = Ini::load(&psp::ini_path()).unwrap_or_default();
@@ -84,6 +87,7 @@ pub fn demo() -> St {
     };
     let mut cfg = Config::default();
     cfg.games_dir = Some("/home/dan/Games/PSP".into());
+    cfg.pad_name = Some("Generic USB Gamepad".into());
     cfg.recents = vec![
         (PathBuf::from("/games/Crisis Core Final Fantasy VII.iso"), now() - 5_400),
         (PathBuf::from("/games/Patapon 3.iso"), now() - 200_000),
@@ -114,6 +118,7 @@ pub fn demo() -> St {
         playing: false,
         query: String::new(),
         psp_setting: String::new(),
+        pad_name: Some("Generic USB Gamepad".into()),
     }
 }
 

@@ -162,7 +162,7 @@ pub fn emu_rows(emu: &EmuInfo) -> Vec<EmuRow> {
     ]
 }
 
-pub fn settings_rows(cfg: &Config, dir: &str) -> Vec<SetRow> {
+pub fn settings_rows(cfg: &Config, dir: &str, pad: Option<&str>) -> Vec<SetRow> {
     let r = |id: &str, label: &str, hint: &str, kind: &str, value: &str, on: bool| SetRow {
         id: id.into(),
         label: label.into(),
@@ -177,6 +177,8 @@ pub fn settings_rows(cfg: &Config, dir: &str) -> Vec<SetRow> {
         r("sounds", "Interface sounds", "Menu ticks and confirms", "toggle", "", cfg.sounds),
         r("fullscreen", "Start games fullscreen", "Passed to the emulator at launch", "toggle", "", cfg.fullscreen),
         r("update-check", "Check for emulator updates", "When the launcher opens", "toggle", "", cfg.update_check),
+        r("pad-auto", "Auto-configure gamepads", "Write pad bindings into each emulator when one is plugged in", "toggle", "", cfg.pad_auto),
+        r("pad-status", "Gamepad · PSP (PPSSPP)", match pad { Some(_) => "Connected — bindings ready in controls.ini", None => "Plug in a controller and it configures itself" }, "info", pad.unwrap_or("No pad"), false),
         r("about", "Version", "T-Emulator", "info", env!("CARGO_PKG_VERSION"), false),
     ]
 

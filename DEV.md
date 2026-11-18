@@ -21,6 +21,9 @@ Layout:       src/launcher.rs  data builders for launcher pages
               src/ini.rs       surgical ini editor (BOM/comments/CRLF-safe)
               src/state.rs     St + Ev + refresh() — UI is a pure function of St
               src/adapters/    emulator adapters (ppsspp)
+              src/pads.rs      gamepad auto-config: merges generic-pad binds
+                               into controls.ini + ships SDL gamecontrollerdb
+              src/covers.rs    box art lookup + libretro-thumbnails download
               ui/app.slint     root: modes, nav state machine, overlays
               ui/launcher/     launcher pages (theme, widgets, topbar, home,
                                library, downloads, settings)

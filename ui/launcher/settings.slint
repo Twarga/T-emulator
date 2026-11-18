@@ -84,12 +84,13 @@ export component Settings inherits Rectangle {
             color: Lt.dim;
         }
         if s.kind == "info": Mono {
-            x: parent.width - 150 * root.u;
-            width: 124 * root.u;
+            x: parent.width - 420 * root.u;
+            width: 394 * root.u;
             text: s.value;
             font-size: 12 * root.u;
             horizontal-alignment: right;
             color: Lt.faint;
+            overflow: elide;
         }
     }
 }

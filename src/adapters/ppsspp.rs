@@ -113,6 +113,9 @@ impl Ppsspp {
         if fullscreen {
             cmd.arg("--fullscreen");
         }
+        if let Some((k, v)) = crate::pads::sdl_db_env() {
+            cmd.env(k, v);
+        }
         cmd.arg(game).spawn().context("starting PPSSPP")
     }
 }

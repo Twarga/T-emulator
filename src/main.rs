@@ -178,6 +178,13 @@ fn main() -> anyhow::Result<()> {
         pump.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(80), move || {
             let Some(app) = weak.upgrade() else { return };
             while let Ok(ev) = rx.try_recv() {
+                eprintln!("[pump] ev {}", match &ev {
+                    Ev::Progress(_) => "progress", Ev::Installed(_) => "installed",
+                    Ev::Latest(_) => "latest", Ev::VersionProbe(_) => "version",
+                    Ev::GameExit => "gameexit", Ev::FolderPicked(_) => "folder",
+                    Ev::Key(_) => "key", Ev::CoversDone => "covers",
+                    Ev::Pad(_) => "pad", Ev::ToastHide => "toast",
+                });
                 let mut b = st.borrow_mut();
                 match ev {
                     Ev::Progress(f) => {
@@ -243,6 +250,7 @@ fn main() -> anyhow::Result<()> {
                     }
                     Ev::CoversDone => {} // refresh() below re-reads cover paths
                     Ev::Pad(name) => {
+                        eprintln!("[pad] Ev::Pad -> {name:?}");
                         let was = b.pad_name.clone();
                         b.pad_name = name.clone();
                         b.cfg.pad_name = name.clone();
@@ -264,7 +272,10 @@ fn main() -> anyhow::Result<()> {
     {
         let tx = tx.clone();
         std::thread::spawn(move || {
-            let Ok(mut g) = gilrs::Gilrs::new() else { return };
+            let mut g = match gilrs::Gilrs::new() {
+                Ok(g) => { eprintln!("[pad] gilrs ok"); g }
+                Err(e) => { eprintln!("[pad] gilrs FAILED: {e}"); return }
+            };
             let map = |b: gilrs::Button| -> Option<char> {
                 use gilrs::Button::*;
                 Some(match b {
@@ -284,8 +295,11 @@ fn main() -> anyhow::Result<()> {
             // announce pads already connected
             if let Some((_, p)) = g.gamepads().next() {
                 let name = p.name().to_string();
+                eprintln!("[pad] startup announce: {name}");
                 t_emulator::pads::ensure_all(&name);
                 let _ = tx.send(Ev::Pad(Some(name)));
+            } else {
+                eprintln!("[pad] startup: none");
             }
             loop {
                 while let Some(e) = g.next_event() {

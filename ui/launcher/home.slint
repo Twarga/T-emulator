@@ -52,7 +52,7 @@ export component Home inherits Rectangle {
     }
     for c[i] in root.consoles: Rectangle {
         property <length> cw: (root.width - 2 * root.pad - 3 * 24 * root.u) / 4;
-        property <length> ch: root.height - self.y - 40 * root.u;
+        property <length> ch: 300 * root.u;
         x: root.pad + i * (cw + 24 * root.u);
         y: root.r > 0 ? 32 * root.u + root.rch + 36 * root.u : 36 * root.u;
         width: cw;
@@ -67,9 +67,9 @@ export component Home inherits Rectangle {
 
         Image {
             source: Icons.device(c.kind);
-            width: cw - 120 * root.u;
-            height: ch * 0.38;
-            x: 60 * root.u;
+            width: cw - 96 * root.u;
+            height: 118 * root.u;
+            x: 48 * root.u;
             y: 36 * root.u;
             image-fit: contain;
             opacity: c.available ? 0.95 : 0.5;

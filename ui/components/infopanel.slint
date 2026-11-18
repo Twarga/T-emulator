@@ -1,0 +1,20 @@
+import { Tokens } from "../tokens.slint";
+
+export component InfoPanel inherits Rectangle {
+    in property <string> title: "";
+    in property <string> size: "—";
+    in property <string> last-played: "—";
+
+    width: 280px;
+    background: Tokens.surface.with-alpha(0.9);
+    border-radius: Tokens.radius;
+    border-width: 1px; border-color: Tokens.border;
+
+    VerticalLayout {
+        padding: 16px; spacing: 10px;
+        Text { text: root.title; color: Tokens.text; font-size: 16px; font-weight: 600; wrap: word-wrap; }
+        Text { text: "Size: " + root.size; color: Tokens.text-dim; font-size: 13px; }
+        Text { text: "Last played: " + root.last-played; color: Tokens.text-dim; font-size: 13px; }
+        Text { text: "Press X to play"; color: Tokens.accent-xmb; font-size: 12px; }
+    }
+}

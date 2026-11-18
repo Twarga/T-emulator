@@ -1,0 +1,87 @@
+import { Tokens } from "../tokens.slint";
+import { WaveBg } from "../components/wavebg.slint";
+import { InfoPanel } from "../components/infopanel.slint";
+import { BootSplash } from "../components/bootsplash.slint";
+
+export struct GameModel {
+    title: string,
+    path: string,
+    size: string,
+    last_played: string,
+}
+
+export component Xmb inherits Rectangle {
+    in property <[GameModel]> games;
+    callback play_game(string);
+    callback exit_console();
+    in-out property <int> focused-idx: 0;
+    in property <float> wave-t: 0;
+
+    background: black;
+
+    WaveBg { width: 100%; height: 100%; t: root.wave-t; }
+
+    // clock
+    Text {
+        text: @tr("{}:{}", "HH", "MM"); // replaced live from Rust via callback — v0.1 static
+        color: Tokens.text; font-size: Tokens.font-clock;
+        x: parent.width - 140px; y: 28px;
+    }
+
+    // category row (Games only active in v0.1)
+    HorizontalLayout {
+        y: 110px; x: 0; width: 100%;
+        alignment: center; spacing: 50px;
+        for cat in ["Settings", "Games", "Network"]: Text {
+            text: cat; font-size: 16px;
+            color: cat == "Games" ? Tokens.text : Tokens.text-dim;
+            opacity: cat == "Games" ? 1.0 : 0.5;
+        }
+    }
+
+    // game list — centered column
+    VerticalLayout {
+        y: 160px; x: parent.width / 2 - 180px; width: 360px;
+        alignment: start; spacing: 4px;
+        for g[idx] in root.games: Rectangle {
+            height: idx == root.focused-idx ? 52px : 40px;
+            border-radius: 8px;
+            background: idx == root.focused-idx ? Tokens.accent-xmb.with-alpha(0.18) : transparent;
+            animate height { duration: Tokens.t-fast; }
+
+            HorizontalLayout {
+                padding-left: 14px; spacing: 12px;
+                Rectangle { width: 28px; height: 28px; border-radius: 6px;
+                            background: Tokens.surface2; y: (parent.height - 28px) / 2; }
+                Text {
+                    text: g.title;
+                    color: idx == root.focused-idx ? Tokens.text : Tokens.text-dim;
+                    font-size: idx == root.focused-idx ? 16px : 14px;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+
+    // info panel for focused game
+    if root.games.length > 0: InfoPanel {
+        x: parent.width - 320px; y: 180px;
+        title: root.games[Math.min(root.focused-idx, root.games.length - 1)].title;
+        size: root.games[Math.min(root.focused-idx, root.games.length - 1)].size;
+        last-played: root.games[Math.min(root.focused-idx, root.games.length - 1)].last_played;
+    }
+
+    Keys {
+        on-key-pressed: (ev) => {
+            if (ev.text == Key.DownArrow) {
+                if (root.focused-idx < root.games.length - 1) { root.focused-idx += 1; } accept
+            } else if (ev.text == Key.UpArrow) {
+                if (root.focused-idx > 0) { root.focused-idx -= 1; } accept
+            } else if (ev.text == Key.Return) {
+                if (root.games.length > 0) { root.play_game(root.games[root.focused-idx].path); } accept
+            } else if (ev.text == Key.Escape) {
+                root.exit_console(); accept
+            } else { reject }
+        }
+    }
+}

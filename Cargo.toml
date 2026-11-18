@@ -1,0 +1,23 @@
+[package]
+name = "t-emulator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+slint = "1.9"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+directories = "5"
+gilrs = "0.10"
+rusqlite = { version = "0.31", features = ["bundled"] }
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+notify = "6"
+rodio = "0.17"
+chrono = "0.4"
+
+[build-dependencies]
+slint-build = "1.9"

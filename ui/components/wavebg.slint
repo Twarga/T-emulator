@@ -1,0 +1,44 @@
+// WaveBg — the XMB wave. Ported-approximation of the cross-media ribbons.
+// 3 sine ribbons, slow drift; month-shifting hue accent via `accent`.
+import { Tokens } from "../tokens.slint";
+
+export component WaveBg inherits Rectangle {
+    in property <color> accent: Tokens.accent-xmb;
+    in property <float> t: 0;          // seconds; driven by timer in parent
+
+    background: Tokens.bg;
+
+    // Ribbon 1 — main, thick, bright
+    Path {
+        viewbox-width: 100; viewbox-height: 100;
+        stroke: accent;
+        stroke-width: 0.4px;
+        fill: transparent;
+        opacity: 0.55;
+        MoveTo { x: -5; y: 55 + 6 * Math.sin(t * 40); }
+        LineTo { x: 105; y: 55 - 6 * Math.sin(t * 40 + 90); }
+        // NOTE: this is the placeholder line — Phase 2 swaps for true ribbon shape
+    }
+
+    // Ribbon 2 — offset, dimmer
+    Path {
+        viewbox-width: 100; viewbox-height: 100;
+        stroke: accent.brighter(30%);
+        stroke-width: 0.25px;
+        fill: transparent;
+        opacity: 0.3;
+        MoveTo { x: -5; y: 62 + 8 * Math.sin(t * 30 + 120); }
+        LineTo { x: 105; y: 62 - 8 * Math.sin(t * 30 + 30); }
+    }
+
+    // Ribbon 3 — low, faint
+    Path {
+        viewbox-width: 100; viewbox-height: 100;
+        stroke: accent.darker(20%);
+        stroke-width: 0.2px;
+        fill: transparent;
+        opacity: 0.18;
+        MoveTo { x: -5; y: 70 + 10 * Math.sin(t * 25 + 200); }
+        LineTo { x: 105; y: 70 - 10 * Math.sin(t * 25 + 10); }
+    }
+}

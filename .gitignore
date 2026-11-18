@@ -2,3 +2,8 @@ target/
 *.o
 *.log
 .DS_Store
+
+
+# Added by cargo
+
+/target

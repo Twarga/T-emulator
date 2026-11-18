@@ -1,0 +1,49 @@
+import { Tokens } from "../tokens.slint";
+import { TileCard } from "../components/tilecard.slint";
+
+export struct ConsoleEntry {
+    title: string,
+    subtitle: string,
+    enabled: bool,
+    accent: color,
+}
+
+export component Picker inherits Rectangle {
+    in property <[ConsoleEntry]> consoles;
+    callback power_on(int);
+    in-out property <int> focused-idx: 0;
+
+    background: Tokens.bg;
+
+    HorizontalLayout {
+        alignment: center; spacing: 40px;
+        for c[idx] in root.consoles: TileCard {
+            title: c.title; subtitle: c.subtitle;
+            enabled: c.enabled; accent: c.accent;
+            focused: idx == root.focused-idx;
+            activated => { if (c.enabled) { root.power_on(idx); } }
+        }
+    }
+
+    Text {
+        text: "◄ ► move   ·   Ⓐ / Enter power on";
+        color: Tokens.text-dim; font-size: 13px;
+        y: parent.height - 50px; x: 0; width: parent.width;
+        horizontal-alignment: center;
+    }
+
+    Keys {
+        on-key-pressed: (ev) => {
+            if (ev.text == Key.RightArrow) {
+                if (root.focused-idx < root.consoles.length - 1) { root.focused-idx += 1; }
+                accept
+            } else if (ev.text == Key.LeftArrow) {
+                if (root.focused-idx > 0) { root.focused-idx -= 1; }
+                accept
+            } else if (ev.text == Key.Return) {
+                if (root.consoles[root.focused-idx].enabled) { root.power_on(root.focused-idx); }
+                accept
+            } else { reject }
+        }
+    }
+}

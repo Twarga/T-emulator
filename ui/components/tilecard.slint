@@ -1,0 +1,34 @@
+import { Tokens } from "../tokens.slint";
+
+export component TileCard inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle: "";
+    in property <bool> enabled: true;
+    in property <bool> focused: false;
+    in property <color> accent: Tokens.accent;
+    callback activated();
+
+    width: Tokens.card-w; height: Tokens.card-h;
+    border-radius: Tokens.radius;
+    background: enabled ? Tokens.surface : Tokens.surface.darker(30%);
+    border-width: focused ? 2px : 1px;
+    border-color: focused ? accent : Tokens.border;
+    scale: focused ? 1.0 : 0.85;
+    opacity: enabled ? 1.0 : 0.45;
+
+    animate scale { duration: Tokens.t-med; easing: ease-out-cubic; }
+    animate border-color { duration: Tokens.t-fast; }
+
+    VerticalLayout {
+        alignment: center; spacing: 6px; padding: 20px;
+        Text { text: root.title; color: Tokens.text; font-size: 22px; font-weight: 700;
+               horizontal-alignment: center; }
+        if root.subtitle != "": Text { text: root.subtitle; color: Tokens.text-dim;
+               font-size: 13px; horizontal-alignment: center; }
+    }
+
+    TouchArea {
+        enabled: root.enabled;
+        clicked => { root.activated(); }
+    }
+}

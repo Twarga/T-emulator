@@ -1,43 +1,54 @@
-// WaveBg — the XMB wave. Ported-approximation of the cross-media ribbons.
-// 3 sine ribbons, slow drift; month-shifting hue accent via `accent`.
+// WaveBg — the XMB wave. 3 sine ribbons built from curve segments, slow drift.
 import { Tokens } from "../tokens.slint";
 
 export component WaveBg inherits Rectangle {
     in property <color> accent: Tokens.accent-xmb;
-    in property <float> t: 0;          // seconds; driven by timer in parent
+    in property <float> t: 0;
 
     background: Tokens.bg;
 
-    // Ribbon 1 — main, thick, bright
+    // Ribbon 1 — main sweep, upper-mid
     Path {
         viewbox-width: 100; viewbox-height: 100;
         stroke: accent;
-        stroke-width: 0.4px;
+        stroke-width: 0.35px;
         fill: transparent;
-        opacity: 0.55;
-        MoveTo { x: -5; y: 55 + 6 * Math.sin(t * 40 * 1deg); }
-        LineTo { x: 105; y: 55 - 6 * Math.sin((t * 40 + 90) * 1deg); }
+        opacity: 0.5;
+        MoveTo { x: -5; y: 52 + 7 * Math.sin((t * 35) * 1deg); }
+        LineTo { x: 15; y: 52 + 7 * Math.sin((t * 35 + 65) * 1deg); }
+        LineTo { x: 35; y: 52 + 7 * Math.sin((t * 35 + 125) * 1deg); }
+        LineTo { x: 55; y: 52 + 7 * Math.sin((t * 35 + 185) * 1deg); }
+        LineTo { x: 75; y: 52 + 7 * Math.sin((t * 35 + 245) * 1deg); }
+        LineTo { x: 105; y: 52 + 7 * Math.sin((t * 35 + 315) * 1deg); }
     }
 
-    // Ribbon 2 — offset, dimmer
+    // Ribbon 2 — lower, offset phase
     Path {
         viewbox-width: 100; viewbox-height: 100;
-        stroke: accent.brighter(30%);
-        stroke-width: 0.25px;
+        stroke: accent.brighter(35%);
+        stroke-width: 0.22px;
         fill: transparent;
-        opacity: 0.3;
-        MoveTo { x: -5; y: 62 + 8 * Math.sin((t * 30 + 120) * 1deg); }
-        LineTo { x: 105; y: 62 - 8 * Math.sin((t * 30 + 30) * 1deg); }
+        opacity: 0.32;
+        MoveTo { x: -5; y: 63 + 9 * Math.sin((t * 28 + 100) * 1deg); }
+        LineTo { x: 18; y: 63 + 9 * Math.sin((t * 28 + 170) * 1deg); }
+        LineTo { x: 40; y: 63 + 9 * Math.sin((t * 28 + 235) * 1deg); }
+        LineTo { x: 62; y: 63 + 9 * Math.sin((t * 28 + 295) * 1deg); }
+        LineTo { x: 84; y: 63 + 9 * Math.sin((t * 28 + 355) * 1deg); }
+        LineTo { x: 105; y: 63 + 9 * Math.sin((t * 28 + 60) * 1deg); }
     }
 
-    // Ribbon 3 — low, faint
+    // Ribbon 3 — lowest, faint
     Path {
         viewbox-width: 100; viewbox-height: 100;
-        stroke: accent.darker(20%);
-        stroke-width: 0.2px;
+        stroke: accent.darker(25%);
+        stroke-width: 0.16px;
         fill: transparent;
         opacity: 0.18;
-        MoveTo { x: -5; y: 70 + 10 * Math.sin((t * 25 + 200) * 1deg); }
-        LineTo { x: 105; y: 70 - 10 * Math.sin((t * 25 + 10) * 1deg); }
+        MoveTo { x: -5; y: 74 + 11 * Math.sin((t * 22 + 220) * 1deg); }
+        LineTo { x: 20; y: 74 + 11 * Math.sin((t * 22 + 280) * 1deg); }
+        LineTo { x: 45; y: 74 + 11 * Math.sin((t * 22 + 340) * 1deg); }
+        LineTo { x: 68; y: 74 + 11 * Math.sin((t * 22 + 40) * 1deg); }
+        LineTo { x: 88; y: 74 + 11 * Math.sin((t * 22 + 100) * 1deg); }
+        LineTo { x: 105; y: 74 + 11 * Math.sin((t * 22 + 150) * 1deg); }
     }
 }

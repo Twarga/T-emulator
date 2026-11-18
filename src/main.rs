@@ -2,6 +2,7 @@ mod config;
 mod adapters;
 mod scanner;
 mod input;
+mod sounds;
 
 use anyhow::Result;
 use slint::{ModelRc, VecModel, SharedString, Color};
@@ -55,6 +56,7 @@ fn main() -> Result<()> {
     let weak = app.as_weak();
     let games_dir_c = games_dir.clone();
     app.on_power_on(move |name| {
+        sounds::select();
         tracing::info!("power_on {name}");
         if name != "PSP" { return; }
         let adapter = adapters::ppsspp::Ppsspp::new();
@@ -80,6 +82,7 @@ fn main() -> Result<()> {
         let adapter = adapters::ppsspp::Ppsspp::new();
         match adapter.launch(&path) {
             Ok(mut child) => {
+                sounds::select();
                 tracing::info!("launched {}", path.display());
                 std::thread::spawn(move || { let _ = child.wait(); });
             }
@@ -87,7 +90,7 @@ fn main() -> Result<()> {
         }
     });
 
-    app.on_exit_console(|| tracing::info!("exit_console"));
+    app.on_exit_console(|| { sounds::back(); tracing::info!("exit_console") });
 
     // gamepad input → UI
     let weak = app.as_weak();

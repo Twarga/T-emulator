@@ -1,5 +1,7 @@
 import { Pal } from "tokens.slint";
 
+// Shared chrome used inside the PSP shell (white-on-color context).
+
 export component KeyChip inherits Rectangle {
     in property <string> label;
     in property <length> u: 1px;
@@ -37,6 +39,8 @@ export component Hint inherits HorizontalLayout {
     }
 }
 
+// Neutral dark toast — readable over both the graphite launcher and the
+// colored XMB wave.
 export component Toast inherits Rectangle {
     in property <string> text;
     in property <float> progress: -1;
@@ -59,7 +63,7 @@ export component Toast inherits Rectangle {
         text: root.text;
         font-size: 19 * u;
         font-weight: 500;
-        color: Pal.text;
+        color: #f5f7ff;
         horizontal-alignment: center;
         vertical-alignment: center;
     }

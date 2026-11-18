@@ -1,0 +1,131 @@
+import { Lt } from "theme.slint";
+import { Txt, Mono, LHint } from "widgets.slint";
+import { TopBar } from "topbar.slint";
+import { Home } from "home.slint";
+import { Library } from "library.slint";
+import { Downloads } from "downloads.slint";
+import { Settings } from "settings.slint";
+import { ConsoleInfo, RecentCard, GameTile, EmuRow, SetRow } from "../types.slint";
+
+export component Launcher inherits Rectangle {
+    background: Lt.bg;
+
+    in property <[ConsoleInfo]> consoles;
+    in property <[RecentCard]> recents;
+    in property <[GameTile]> games;
+    in property <[EmuRow]> emus;
+    in property <[SetRow]> settings;
+    in property <string> clock;
+    in property <string> date;
+    in property <bool> attn;
+    in property <string> query;
+    in property <bool> searching;
+    in property <string> empty-dir;
+    in property <length> u: 1px;
+
+    in-out property <int> tab;
+    in-out property <int> zone;          // 0 tabs, 1 content, 2 searching
+    in-out property <int> home-focus;   // 0..r-1 recents, r..r+3 consoles
+    in-out property <int> lib-idx;
+    in-out property <int> dl-idx;
+    in-out property <int> set-idx;
+    in-out property <int> lib-cols;
+    in-out property <length> lib-scroll;
+
+    callback pick-tab(int);
+    callback home-pick(int);
+    callback lib-pick(int);
+    callback emu-act(int);
+    callback set-act(int);
+    callback open-folder();
+
+    TopBar {
+        width: parent.width;
+        tab <=> root.tab;
+        zone: root.zone;
+        clock: root.clock;
+        date: root.date;
+        attn: root.attn;
+        u: root.u;
+        pick-tab(i) => { root.pick-tab(i); }
+    }
+
+    Rectangle {
+        x: 0;
+        y: 64 * root.u;
+        width: parent.width;
+        height: parent.height - self.y - 44 * root.u;
+
+        if root.tab == 0: Home {
+            width: parent.width;
+            height: parent.height;
+            consoles: root.consoles;
+            recents: root.recents;
+            focus: root.home-focus;
+            u: root.u;
+            pick(i) => { root.home-pick(i); }
+        }
+        if root.tab == 1: Library {
+            width: parent.width;
+            height: parent.height;
+            games: root.games;
+            focus <=> root.lib-idx;
+            query: root.query;
+            searching: root.searching;
+            empty-dir: root.empty-dir;
+            cols <=> root.lib-cols;
+            scroll <=> root.lib-scroll;
+            u: root.u;
+            pick(i) => { root.lib-pick(i); }
+            open-folder() => { root.open-folder(); }
+        }
+        if root.tab == 2: Downloads {
+            width: parent.width;
+            height: parent.height;
+            emus: root.emus;
+            focus: root.dl-idx;
+            u: root.u;
+            act(i) => { root.emu-act(i); }
+        }
+        if root.tab == 3: Settings {
+            width: parent.width;
+            height: parent.height;
+            rows: root.settings;
+            focus: root.set-idx;
+            u: root.u;
+            act(i) => { root.set-act(i); }
+        }
+    }
+
+    // bottom hint bar
+    Rectangle {
+        x: 0;
+        y: parent.height - 44 * root.u;
+        width: parent.width;
+        height: 44 * root.u;
+        background: Lt.bg;
+        Rectangle { width: parent.width; height: 1px; background: Lt.line; }
+        HorizontalLayout {
+            x: root.zone == 0 ? 0 : -400 * root.u;
+            height: parent.height;
+            padding-left: 48 * root.u;
+            spacing: 30 * root.u;
+            animate x { duration: 160ms; }
+            LHint { key: "←  →"; label: "Section"; u: root.u; }
+            LHint { key: "↓"; label: "Enter"; u: root.u; }
+            LHint { key: "Esc"; label: "Quit"; u: root.u; }
+        }
+        HorizontalLayout {
+            x: root.zone == 2 ? 0 : (root.zone == 1 ? 0 : 400 * root.u);
+            height: parent.height;
+            padding-left: 48 * root.u;
+            spacing: 30 * root.u;
+            animate x { duration: 160ms; }
+            LHint { key: "↑  ↓  ←  →"; label: "Move"; u: root.u; }
+            LHint { key: "Enter"; label: root.tab == 0 ? "Power on" : (root.tab == 1 ? "Play" : "Select"); u: root.u; }
+            LHint { key: "Tab"; label: "Next section"; u: root.u; }
+            LHint { key: "Esc"; label: "Back"; u: root.u; }
+            if root.tab == 1: LHint { key: "/"; label: "Search"; u: root.u; }
+        }
+    }
+}

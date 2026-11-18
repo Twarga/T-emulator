@@ -1,0 +1,110 @@
+import { Lt } from "theme.slint";
+
+// ── text in the launcher voice ──
+export component Txt inherits Text {
+    font-family: "IBM Plex Sans";
+    color: Lt.text;
+    vertical-alignment: center;
+}
+export component Mono inherits Text {
+    font-family: "IBM Plex Mono";
+    color: Lt.dim;
+    vertical-alignment: center;
+}
+
+// ── typographic game cover (no box art yet) ──
+export component Cover inherits Rectangle {
+    in property <string> title;
+    in property <string> console;
+    in property <int> tone;
+    in property <bool> foc;
+    in property <length> u: 1px;
+    background: Lt.tones[Math.mod(Math.max(0, root.tone), Lt.tones.length)];
+    border-radius: Lt.r-sm;
+    clip: true;
+
+    // faint oversized first letter, bottom-right — the tile's only ornament
+    Txt {
+        x: parent.width - self.width - 10 * root.u;
+        y: parent.height - self.height - 2 * root.u;
+        text: root.title != "" ? root.title : "·";
+        font-size: 88 * root.u;
+        font-weight: 600;
+        color: #ffffff12;
+    }
+    Mono {
+        x: 10 * root.u;
+        y: 9 * root.u;
+        text: root.console;
+        font-size: 10 * root.u;
+        letter-spacing: 2 * root.u;
+        color: #ffffffb0;
+    }
+    Txt {
+        x: 10 * root.u;
+        y: 24 * root.u;
+        width: parent.width - 20 * root.u;
+        text: root.title;
+        font-size: 15 * root.u;
+        font-weight: 500;
+        wrap: word-wrap;
+        color: #fffdf8;
+    }
+}
+
+// ── key hint chip + row ──
+export component KeyChip inherits Rectangle {
+    in property <string> label;
+    in property <length> u: 1px;
+    height: 26 * u;
+    min-width: 26 * u;
+    border-radius: 6 * u;
+    background: Lt.surface2;
+    border-width: 1px;
+    border-color: Lt.line;
+    HorizontalLayout {
+        padding-left: 8 * u;
+        padding-right: 8 * u;
+        Mono {
+            text: root.label;
+            font-size: 12 * u;
+            color: Lt.text;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+export component LHint inherits HorizontalLayout {
+    in property <string> key;
+    in property <string> label;
+    in property <length> u: 1px;
+    spacing: 8 * u;
+    KeyChip { label: root.key; u: root.u; }
+    Txt {
+        text: root.label;
+        font-size: 13 * u;
+        color: Lt.faint;
+    }
+}
+
+// ── pill action button ──
+export component Btn inherits Rectangle {
+    in property <string> label;
+    in property <bool> hot;
+    in property <bool> primary;
+    in property <length> u: 1px;
+    width: 118 * u;
+    height: 34 * u;
+    border-radius: 17 * u;
+    background: root.primary ? Lt.accent : Lt.surface2;
+    border-width: 1px;
+    border-color: root.primary ? Lt.accent : Lt.line;
+    Txt {
+        text: root.label;
+        font-size: 13 * u;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        color: root.primary ? #1a0f08 : Lt.dim;
+    }
+}

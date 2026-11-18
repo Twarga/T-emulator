@@ -1,0 +1,156 @@
+import { Lt } from "theme.slint";
+import { Txt, Mono, Cover, KeyChip } from "widgets.slint";
+import { GameTile } from "../types.slint";
+
+export component Library inherits Rectangle {
+    in property <[GameTile]> games;
+    in-out property <int> focus;
+    in property <string> query;
+    in property <bool> searching;
+    in property <string> empty-dir;
+    in-out property <int> cols;
+    in-out property <length> scroll;
+    in property <length> u: 1px;
+    callback pick(int);
+    callback open-folder();
+
+    property <length> pad: 48 * root.u;
+    property <int> cc: Math.max(2, Math.floor((root.width - 2 * root.pad) / (196 * root.u)));
+    changed cc => { root.cols = cc; }
+
+    property <length> cell: 196 * root.u;
+    property <length> grid-x: (root.width - (cc * root.cell - 16 * root.u)) / 2;
+    property <length> grid-y: 96 * root.u;
+    property <length> grid-h: root.height - root.grid-y - 12 * root.u;
+
+    // ── header ──
+    Txt {
+        x: root.pad;
+        y: 14 * root.u;
+        text: "Library";
+        font-size: 24 * root.u;
+        font-weight: 600;
+    }
+    Mono {
+        x: root.pad + 112 * root.u;
+        y: 22 * root.u;
+        text: root.games.length + " games";
+        font-size: 12 * root.u;
+        color: Lt.faint;
+    }
+
+    // search field (keyboard-driven: / opens, type to filter, Esc clears)
+    Rectangle {
+        x: parent.width - root.pad - 300 * root.u;
+        y: 10 * root.u;
+        width: 300 * root.u;
+        height: 38 * root.u;
+        border-radius: 19 * root.u;
+        background: Lt.surface;
+        border-width: 2px;
+        border-color: root.searching ? Lt.accent : Lt.line;
+        Txt {
+            x: 18 * root.u;
+            width: parent.width - 60 * root.u;
+            text: root.query == "" ? "Search" : root.query;
+            font-size: 14 * root.u;
+            color: root.query == "" ? Lt.faint : Lt.text;
+            vertical-alignment: center;
+        }
+        KeyChip { x: parent.width - 40 * root.u; y: 6 * root.u; label: "/"; u: root.u; }
+    }
+
+    // ── grid ──
+    Rectangle {
+        visible: root.games.length > 0;
+        x: 0;
+        y: root.grid-y;
+        width: parent.width;
+        height: root.grid-h;
+        clip: true;
+
+        for g[i] in root.games: Rectangle {
+            property <int> row: Math.floor(i / root.cc);
+            property <int> col: i - row * root.cc;
+            x: root.grid-x + col * root.cell;
+            y: row * (150 * root.u) - root.scroll;
+            width: 180 * root.u;
+            height: 134 * root.u;
+
+            Cover {
+                x: 0;
+                y: 0;
+                width: parent.width;
+                height: 104 * root.u;
+                title: g.title;
+                console: g.console;
+                tone: g.tone;
+                u: root.u;
+                border-width: 2px;
+                border-color: i == root.focus ? Lt.accent : #00000000;
+            }
+            Txt {
+                y: 108 * root.u;
+                width: parent.width;
+                text: g.title;
+                font-size: 13 * root.u;
+                font-weight: i == root.focus ? 600 : 400;
+                color: i == root.focus ? Lt.text : Lt.dim;
+                overflow: elide;
+            }
+            Mono {
+                y: 124 * root.u;
+                text: g.sub;
+                font-size: 10 * root.u;
+                color: Lt.faint;
+            }
+            TouchArea { clicked => { root.pick(i); } }
+        }
+    }
+
+    // scroll hint: focus row stays visible (scroll is driven from app.slint nav)
+
+    // ── empty state ──
+    Rectangle {
+        visible: root.games.length == 0;
+        x: 0; y: root.grid-y;
+        width: parent.width; height: root.grid-h;
+        Txt {
+            y: parent.height * 0.32;
+            width: parent.width;
+            horizontal-alignment: center;
+            text: root.query != "" ? "Nothing matches \"" + root.query + "\"" : "No games yet";
+            font-size: 20 * root.u;
+            font-weight: 500;
+            color: Lt.dim;
+        }
+        Txt {
+            visible: root.query == "";
+            y: parent.height * 0.32 + 34 * root.u;
+            width: parent.width;
+            horizontal-alignment: center;
+            text: "Put .iso / .cso / .pbp files in " + root.empty-dir;
+            font-size: 14 * root.u;
+            color: Lt.faint;
+        }
+        Rectangle {
+            visible: root.query == "";
+            x: (parent.width - self.width) / 2;
+            y: parent.height * 0.32 + 76 * root.u;
+            width: 180 * root.u;
+            height: 36 * root.u;
+            border-radius: 18 * root.u;
+            background: Lt.surface2;
+            border-width: 1px;
+            border-color: Lt.line;
+            Txt {
+                text: "Open games folder";
+                font-size: 13 * root.u;
+                font-weight: 500;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            TouchArea { clicked => { root.open-folder(); } }
+        }
+    }
+}

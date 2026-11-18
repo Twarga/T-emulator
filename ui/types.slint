@@ -7,8 +7,10 @@ export struct ConsoleInfo {
 }
 
 export struct XmbItem {
+    id: string,
     title: string,
     subtitle: string,
+    value: string,
     art: image,
     has-art: bool,
     icon: string,
@@ -18,4 +20,36 @@ export struct XmbCategory {
     name: string,
     icon: string,
     items: [XmbItem],
+}
+
+export struct GameTile {
+    idx: int,
+    title: string,
+    console: string,
+    sub: string,
+    tone: int,
+}
+
+export struct RecentCard {
+    idx: int,
+    title: string,
+    ago: string,
+    tone: int,
+}
+
+export struct EmuRow {
+    name: string,
+    detail: string,
+    state: int, // 0 install, 1 update, 2 ready, 3 busy, 4 planned
+    action: string,
+    progress: float,
+}
+
+export struct SetRow {
+    id: string,
+    label: string,
+    hint: string,
+    kind: string, // value | toggle | action | info
+    value: string,
+    on: bool,
 }

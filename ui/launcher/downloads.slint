@@ -1,0 +1,96 @@
+import { Lt } from "theme.slint";
+import { Txt, Mono, Btn } from "widgets.slint";
+import { EmuRow } from "../types.slint";
+
+export component Downloads inherits Rectangle {
+    in property <[EmuRow]> emus;
+    in property <int> focus;
+    in property <length> u: 1px;
+    callback act(int);
+
+    property <length> pad: 48 * root.u;
+    property <length> row-h: 64 * root.u;
+
+    Txt {
+        x: root.pad;
+        y: 14 * root.u;
+        text: "Emulators";
+        font-size: 24 * root.u;
+        font-weight: 600;
+    }
+    Mono {
+        x: root.pad + 160 * root.u;
+        y: 22 * root.u;
+        text: "Installed from the official source";
+        font-size: 12 * root.u;
+        color: Lt.faint;
+    }
+
+    for e[i] in root.emus: Rectangle {
+        x: root.pad;
+        y: 56 * root.u + i * (root.row-h + 8 * root.u);
+        width: parent.width - 2 * root.pad;
+        height: root.row-h;
+        border-radius: Lt.r-lg;
+        background: i == root.focus ? Lt.surface2 : Lt.surface;
+        border-width: 2px;
+        border-color: i == root.focus ? Lt.accent : #00000000;
+        opacity: e.state == 4 ? 0.45 : 1;
+        TouchArea { enabled: e.state != 4; clicked => { root.act(i); } }
+
+        Txt {
+            x: 22 * root.u;
+            y: 12 * root.u;
+            text: e.name;
+            font-size: 16 * root.u;
+            font-weight: 500;
+        }
+        Mono {
+            x: 22 * root.u;
+            y: 36 * root.u;
+            width: parent.width - 380 * root.u;
+            text: e.detail;
+            font-size: 11 * root.u;
+            color: e.state == 1 ? Lt.accent : Lt.faint;
+            overflow: elide;
+        }
+
+        if e.state == 3: Rectangle {
+            x: parent.width - 300 * root.u;
+            y: (parent.height - 8 * root.u) / 2;
+            width: 200 * root.u;
+            height: 8 * root.u;
+            border-radius: 4 * root.u;
+            background: Lt.line;
+            Rectangle {
+                width: parent.width * Math.min(Math.max(e.progress, 0), 1);
+                height: parent.height;
+                border-radius: 4 * root.u;
+                background: Lt.accent;
+            }
+        }
+        if e.state == 4: Mono {
+            x: parent.width - 130 * root.u;
+            width: 100 * root.u;
+            text: "Later";
+            font-size: 12 * root.u;
+            horizontal-alignment: right;
+            color: Lt.faint;
+        }
+        if e.state == 0 || e.state == 1: Btn {
+            x: parent.width - self.width - 22 * root.u;
+            y: (parent.height - self.height) / 2;
+            label: e.action;
+            primary: i == root.focus;
+            u: root.u;
+        }
+        if e.state == 2: Mono {
+            x: parent.width - 140 * root.u;
+            width: 110 * root.u;
+            text: "Installed";
+            font-size: 12 * root.u;
+            horizontal-alignment: right;
+            color: Lt.ok;
+        }
+    }
+}

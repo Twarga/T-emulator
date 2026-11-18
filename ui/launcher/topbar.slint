@@ -1,0 +1,109 @@
+import { Lt } from "theme.slint";
+import { Txt, Mono } from "widgets.slint";
+import { Icons } from "../icons.slint";
+
+export component TopBar inherits Rectangle {
+    in-out property <int> tab;
+    in property <int> zone;
+    in property <string> clock;
+    in property <string> date;
+    in property <bool> attn;
+    in property <length> u: 1px;
+    callback pick-tab(int);
+
+    property <[string]> tabs: ["Home", "Library", "Downloads", "Settings"];
+    property <length> tab-x: 300 * root.u;
+    property <length> tab-w: 118 * root.u;
+
+    height: 64 * root.u;
+    background: Lt.bg;
+
+    // wordmark
+    Rectangle {
+        x: 48 * root.u;
+        y: 20 * root.u;
+        width: 24 * root.u;
+        height: 24 * root.u;
+        border-radius: 5 * root.u;
+        background: Lt.accent;
+        Txt {
+            text: "T";
+            font-size: 15 * root.u;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            color: #1a0f08;
+        }
+    }
+    Txt {
+        x: 82 * root.u;
+        y: 0;
+        height: parent.height;
+        text: "T-EMULATOR";
+        font-size: 15 * root.u;
+        font-weight: 600;
+        letter-spacing: 4 * root.u;
+        color: Lt.text;
+    }
+
+    // tabs
+    for t[i] in root.tabs: Rectangle {
+        x: root.tab-x + i * root.tab-w;
+        width: root.tab-w;
+        height: parent.height;
+        TouchArea {
+            clicked => { root.pick-tab(i); }
+        }
+        Txt {
+            text: t;
+            font-size: 15 * root.u;
+            font-weight: i == root.tab ? 600 : 400;
+            horizontal-alignment: center;
+            color: i == root.tab ? Lt.text : Lt.faint;
+        }
+        Rectangle {
+            visible: i == root.tab;
+            x: 34 * root.u;
+            y: parent.height - 16 * root.u;
+            width: parent.width - 68 * root.u;
+            height: 2 * root.u;
+            background: root.zone == 0 ? Lt.accent : Lt.line;
+        }
+        Image {
+            visible: i == 2 && root.attn;
+            source: Icons.by-name("check");
+            colorize: Lt.accent;
+            x: parent.width - 30 * root.u;
+            y: 25 * root.u;
+            width: 14 * root.u;
+            height: 14 * root.u;
+        }
+    }
+
+    // clock
+    Mono {
+        x: parent.width - 200 * root.u;
+        y: 12 * root.u;
+        width: 152 * root.u;
+        text: root.clock;
+        font-size: 20 * root.u;
+        horizontal-alignment: right;
+        color: Lt.text;
+    }
+    Mono {
+        x: parent.width - 200 * root.u;
+        y: 38 * root.u;
+        width: 152 * root.u;
+        text: root.date;
+        font-size: 11 * root.u;
+        horizontal-alignment: right;
+        color: Lt.faint;
+    }
+
+    Rectangle {
+        y: parent.height - 1px;
+        width: parent.width;
+        height: 1px;
+        background: Lt.line;
+    }
+}

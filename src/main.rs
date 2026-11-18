@@ -31,6 +31,7 @@ fn load_games(dir: &std::path::Path) -> Vec<GameModel> {
         path: SharedString::from(g.path.to_string_lossy().to_string()),
         size: SharedString::from(g.size.clone()),
         last_played: SharedString::from("—"),
+        icon: SharedString::from("💿"),
     }).collect()
 }
 
@@ -42,10 +43,10 @@ fn main() -> Result<()> {
     let app = App::new()?;
 
     let consoles = vec![
-        ConsoleEntry { title: SharedString::from("PSP"), subtitle: SharedString::from("PlayStation Portable"), enabled: true, accent: Color::from_rgb_u8(0x4e, 0xa8, 0xff) },
-        ConsoleEntry { title: SharedString::from("PS3"), subtitle: SharedString::from("PlayStation 3 — soon"), enabled: false, accent: Color::from_rgb_u8(0x4e, 0xa8, 0xff) },
-        ConsoleEntry { title: SharedString::from("GC / Wii"), subtitle: SharedString::from("Nintendo — soon"), enabled: false, accent: Color::from_rgb_u8(0x6a, 0x4f, 0xff) },
-        ConsoleEntry { title: SharedString::from("PS2"), subtitle: SharedString::from("PlayStation 2 — soon"), enabled: false, accent: Color::from_rgb_u8(0x4e, 0xa8, 0xff) },
+        ConsoleEntry { title: SharedString::from("PSP"), subtitle: SharedString::from("PlayStation Portable"), glyph: SharedString::from("🎮"), enabled: true, accent: Color::from_rgb_u8(0x4e, 0xa8, 0xff) },
+        ConsoleEntry { title: SharedString::from("PS3"), subtitle: SharedString::from("PlayStation 3 — soon"), glyph: SharedString::from("🎮"), enabled: false, accent: Color::from_rgb_u8(0x4e, 0xa8, 0xff) },
+        ConsoleEntry { title: SharedString::from("GC / Wii"), subtitle: SharedString::from("Nintendo — soon"), glyph: SharedString::from("🕹"), enabled: false, accent: Color::from_rgb_u8(0x6a, 0x4f, 0xff) },
+        ConsoleEntry { title: SharedString::from("PS2"), subtitle: SharedString::from("PlayStation 2 — soon"), glyph: SharedString::from("🎮"), enabled: false, accent: Color::from_rgb_u8(0x4e, 0xa8, 0xff) },
     ];
     app.set_consoles(ModelRc::new(VecModel::from(consoles)));
 

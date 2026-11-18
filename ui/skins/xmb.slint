@@ -1,12 +1,12 @@
 import { Tokens } from "../tokens.slint";
 import { WaveBg } from "../components/wavebg.slint";
-import { InfoPanel } from "../components/infopanel.slint";
 
 export struct GameModel {
     title: string,
     path: string,
     size: string,
     last_played: string,
+    icon: string,
 }
 
 export component Xmb inherits Rectangle {
@@ -14,61 +14,112 @@ export component Xmb inherits Rectangle {
     callback play_game(string);
     callback exit_console();
     in-out property <int> focused-idx: 0;
+    in-out property <int> focused-cat: 1;
     in property <float> wave-t: 0;
     in property <string> clock: "00:00";
 
-    background: black;
+    property <[string]> cats: ["⚙", "📷", "🎵", "🎮", "🎬", "🌐"];
+    property <[string]> catnames: ["Settings", "Photo", "Music", "Games", "Video", "Network"];
 
+    background: black;
     WaveBg { width: 100%; height: 100%; t: root.wave-t; }
 
-    // clock
-    Text {
-        text: root.clock;
-        color: Tokens.text; font-size: Tokens.font-clock;
-        x: parent.width - 140px; y: 28px;
-    }
-
-    // category row (Games only active in v0.1)
+    // ── category icons row ──
     HorizontalLayout {
-        y: 110px; x: 0; width: 100%;
-        alignment: center; spacing: 50px;
-        for cat in ["Settings", "Games", "Network"]: Text {
-            text: cat; font-size: 16px;
-            color: cat == "Games" ? Tokens.text : Tokens.text-dim;
-            opacity: cat == "Games" ? 1.0 : 0.5;
-        }
-    }
-
-    // game list — centered column
-    VerticalLayout {
-        y: 160px; x: parent.width / 2 - 180px; width: 360px;
-        alignment: start; spacing: 4px;
-        for g[idx] in root.games: Rectangle {
-            height: idx == root.focused-idx ? 52px : 40px;
-            border-radius: 8px;
-            background: idx == root.focused-idx ? Tokens.accent-xmb.with-alpha(0.18) : transparent;
-            animate height { duration: Tokens.t-fast; }
-
-            HorizontalLayout {
-                padding-left: 14px; spacing: 12px;
-                Rectangle { width: 28px; height: 28px; border-radius: 6px;
-                            background: Tokens.surface2; y: (parent.height - 28px) / 2; }
+        y: 120px; x: 0; width: 100%;
+        alignment: center; spacing: 34px;
+        for c[idx] in root.cats: VerticalLayout {
+            alignment: center; spacing: 6px;
+            Rectangle {
+                width: idx == root.focused-cat ? 64px : 46px;
+                height: idx == root.focused-cat ? 64px : 46px;
+                border-radius: idx == root.focused-cat ? 32px : 23px;
+                background: idx == root.focused-cat ? Tokens.accent-xmb.with-alpha(0.25) : Tokens.surface.with-alpha(0.6);
+                border-width: idx == root.focused-cat ? 2px : 1px;
+                border-color: idx == root.focused-cat ? Tokens.accent-xmb : Tokens.border;
+                animate width { duration: 200ms; }
+                animate height { duration: 200ms; }
+                animate border-radius { duration: 200ms; }
                 Text {
-                    text: g.title;
-                    color: idx == root.focused-idx ? Tokens.text : Tokens.text-dim;
-                    font-size: idx == root.focused-idx ? 16px : 14px;
-                    vertical-alignment: center;
+                    text: c; font-size: idx == root.focused-cat ? 30px : 20px;
+                    horizontal-alignment: center; vertical-alignment: center;
+                    animate font-size { duration: 200ms; }
                 }
+            }
+            Text {
+                text: root.catnames[idx]; font-size: 11px;
+                color: idx == root.focused-cat ? Tokens.text : Tokens.text-dim;
+                horizontal-alignment: center;
+                opacity: idx == root.focused-cat ? 1.0 : 0.55;
             }
         }
     }
 
-    // info panel for focused game
-    if root.games.length > 0: InfoPanel {
-        x: parent.width - 320px; y: 180px;
-        title: root.games[Math.min(root.focused-idx, root.games.length - 1)].title;
-        size: root.games[Math.min(root.focused-idx, root.games.length - 1)].size;
-        last-played: root.games[Math.min(root.focused-idx, root.games.length - 1)].last_played;
+    // ── game column under Games ──
+    if root.focused-cat == 3: Rectangle {
+        x: parent.width / 2 - 210px; y: 210px; width: 420px;
+        VerticalLayout {
+            spacing: 2px;
+            for g[idx] in root.games: Rectangle {
+                height: idx == root.focused-idx ? 54px : 42px;
+                border-radius: 10px;
+                background: idx == root.focused-idx ? Tokens.accent-xmb.with-alpha(0.22) : transparent;
+                animate height { duration: 160ms; }
+                animate background { duration: 160ms; }
+                HorizontalLayout {
+                    padding-left: 16px; spacing: 14px;
+                    Rectangle {
+                        width: 34px; height: 34px; border-radius: 8px;
+                        y: (parent.height - 34px) / 2;
+                        background: Tokens.surface2;
+                        Text { text: "💿"; font-size: 18px;
+                               horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Text {
+                        text: g.title;
+                        color: idx == root.focused-idx ? Tokens.text : Tokens.text-dim;
+                        font-size: idx == root.focused-idx ? 16px : 14px;
+                        vertical-alignment: center;
+                        animate font-size { duration: 160ms; }
+                    }
+                }
+            }
+            if root.games.length == 0: Text {
+                text: "No PSP games found\nDrop .iso in ~/Games/PSP";
+                color: Tokens.text-dim; font-size: 14px;
+                horizontal-alignment: center;
+            }
+        }
+    }
+
+    // ── info panel ──
+    if root.focused-cat == 3 && root.games.length > 0: Rectangle {
+        x: parent.width - 330px; y: 220px; width: 290px;
+        border-radius: 12px;
+        background: Tokens.surface.with-alpha(0.85);
+        border-width: 1px; border-color: Tokens.border;
+        VerticalLayout {
+            padding: 18px; spacing: 10px;
+            Text { text: root.games[Math.min(root.focused-idx, root.games.length - 1)].title;
+                   color: Tokens.text; font-size: 16px; font-weight: 600; wrap: word-wrap; }
+            Text { text: "Size: " + root.games[Math.min(root.focused-idx, root.games.length - 1)].size;
+                   color: Tokens.text-dim; font-size: 13px; }
+            Text { text: "PSP  ·  Press X to play"; color: Tokens.accent-xmb; font-size: 12px; }
+        }
+    }
+
+    // ── clock ──
+    Text {
+        text: root.clock; color: Tokens.text; font-size: 15px;
+        x: parent.width - 130px; y: 26px;
+    }
+
+    // ── hint bar ──
+    Text {
+        text: "← →  category    ↑ ↓  select    ✕  play    ○  back";
+        color: Tokens.text-dim.with-alpha(0.8); font-size: 12px;
+        y: parent.height - 44px; x: 0; width: parent.width;
+        horizontal-alignment: center;
     }
 
     fs := FocusScope {
@@ -77,8 +128,12 @@ export component Xmb inherits Rectangle {
                 if (root.focused-idx < root.games.length - 1) { root.focused-idx += 1; } accept
             } else if (ev.text == Key.UpArrow) {
                 if (root.focused-idx > 0) { root.focused-idx -= 1; } accept
+            } else if (ev.text == Key.RightArrow) {
+                if (root.focused-cat < root.cats.length - 1) { root.focused-cat += 1; } accept
+            } else if (ev.text == Key.LeftArrow) {
+                if (root.focused-cat > 0) { root.focused-cat -= 1; } accept
             } else if (ev.text == Key.Return) {
-                if (root.games.length > 0) { root.play_game(root.games[root.focused-idx].path); } accept
+                if (root.focused-cat == 3 && root.games.length > 0) { root.play_game(root.games[root.focused-idx].path); } accept
             } else if (ev.text == Key.Escape) {
                 root.exit_console(); accept
             } else { reject }

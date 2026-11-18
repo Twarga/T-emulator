@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>T-Emulator — PSP launcher &amp; XMB shell</title>
+<meta name="description" content="A launcher and console shell for PSP gaming. Boots a PSP-styled XMB on top of PPSSPP.">
+<style>
+  :root{
+    --bg:#161411; --surface:#1e1a15; --surface2:#262019; --line:#3a3229;
+    --text:#ede7dd; --dim:#a89e90; --faint:#6f675c;
+    --accent:#ff5a2a; --ok:#7dc98f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+    font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  code,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 32px}
+
+  /* ── top bar ── */
+  header{
+    border-bottom:1px solid var(--line);
+    padding:18px 0; display:block;
+  }
+  .bar{display:flex;align-items:center;gap:14px}
+  .logo{
+    width:30px;height:30px;border-radius:8px;background:var(--accent);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:15px;color:#1a0f08;
+  }
+  .name{font-weight:600;letter-spacing:.14em;font-size:15px}
+  .bar a{color:var(--dim);text-decoration:none;margin-left:auto;font-size:14px}
+  .bar a:hover{color:var(--text)}
+  .gh{margin-left:26px}
+
+  /* ── hero ── */
+  .hero{padding:88px 0 64px}
+  .tag{
+    display:inline-block;font-size:12px;letter-spacing:.18em;color:var(--accent);
+    border:1px solid var(--line);border-radius:99px;padding:5px 14px;margin-bottom:22px;
+    background:var(--surface);
+  }
+  h1{font-size:52px;font-weight:600;line-height:1.08;letter-spacing:-.01em;max-width:760px}
+  h1 em{font-style:normal;color:var(--accent)}
+  .sub{margin-top:22px;font-size:19px;color:var(--dim);max-width:620px}
+  .cta{margin-top:38px;display:flex;gap:14px;flex-wrap:wrap}
+  .btn{
+    display:inline-flex;align-items:center;gap:9px;text-decoration:none;
+    font-weight:600;font-size:15px;border-radius:99px;padding:13px 26px;
+  }
+  .btn.primary{background:var(--accent);color:#1a0f08}
+  .btn.primary:hover{background:#ff6c42}
+  .btn.ghost{background:var(--surface2);color:var(--dim);border:1px solid var(--line)}
+  .btn.ghost:hover{color:var(--text);border-color:var(--dim)}
+  .ver{font-size:13px;color:var(--faint);margin-top:16px}
+
+  /* ── hero shot ── */
+  .shot{
+    margin-top:64px;border-radius:14px;overflow:hidden;
+    border:1px solid var(--line);box-shadow:0 30px 80px -20px #000000c8;
+  }
+  .shot img{display:block;width:100%}
+  .cap{font-size:13px;color:var(--faint);padding:12px 4px;text-align:center}
+
+  /* ── features ── */
+  .feats{padding:80px 0 40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:2px}
+  .feat{background:var(--surface);padding:30px 28px;border:1px solid var(--bg)}
+  .feat:hover{background:var(--surface2)}
+  .feat h3{font-size:17px;font-weight:600;margin-bottom:9px}
+  .feat p{font-size:14.5px;color:var(--dim)}
+  .feat .dot{width:9px;height:9px;border-radius:99px;background:var(--accent);margin-bottom:16px}
+
+  /* ── gallery ── */
+  h2{font-size:30px;font-weight:600;padding:56px 0 8px}
+  .lead{color:var(--dim);max-width:560px;margin-bottom:36px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding-bottom:20px}
+  .grid figure{border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--surface)}
+  .grid img{display:block;width:100%;transition:transform .5s ease}
+  .grid figure:hover img{transform:scale(1.03)}
+  figcaption{padding:12px 16px;font-size:13px;color:var(--dim);border-top:1px solid var(--line)}
+  @media (max-width:720px){.grid{grid-template-columns:1fr}h1{font-size:38px}}
+
+  /* ── download ── */
+  .dl{padding:60px 0 90px}
+  .cards{display:flex;gap:16px;flex-wrap:wrap;margin-top:26px}
+  .card{
+    flex:1;min-width:260px;background:var(--surface);border:1px solid var(--line);
+    border-radius:14px;padding:26px;text-decoration:none;color:var(--text);
+  }
+  .card:hover{border-color:var(--accent);background:var(--surface2)}
+  .card .os{font-size:12px;letter-spacing:.16em;color:var(--faint);margin-bottom:10px}
+  .card .f{font-weight:600;font-size:17px}
+  .card .s{font-size:13px;color:var(--dim);margin-top:6px}
+  .notes{margin-top:30px;font-size:13.5px;color:var(--faint);border-top:1px solid var(--line);padding-top:22px}
+  .notes li{margin-left:18px;margin-top:5px}
+  .notes code{color:var(--dim);font-size:12.5px}
+
+  footer{border-top:1px solid var(--line);padding:26px 0 40px;font-size:13px;color:var(--faint)}
+  footer a{color:var(--dim);text-decoration:none}
+</style>
+</head>
+<body>
+<header><div class="wrap bar">
+  <div class="logo">T</div><div class="name">T-EMULATOR</div>
+  <a href="https://github.com/Twarga/T-emulator">Source</a>
+  <a class="gh" href="https://github.com/Twarga/T-emulator/releases">Releases</a>
+</div></header>
+
+<section class="hero wrap">
+  <span class="tag">PSP · XMB SHELL · V0.1.0</span>
+  <h1>A console in your pocket.<br>On <em>your</em> desktop.</h1>
+  <p class="sub">T-Emulator boots a real PSP-style XMB shell on top of PPSSPP — games, settings and covers, all in one place. One window, controller-first.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/Twarga/T-emulator/releases/download/v0.1.0/t-emulator-v0.1.0-linux-x86_64.tar.gz">Download for Linux</a>
+    <a class="btn ghost" href="https://github.com/Twarga/T-emulator/releases/download/v0.1.0/t-emulator-v0.1.0-windows-x86_64.zip">Windows ↓</a>
+    <a class="btn ghost" href="https://github.com/Twarga/T-emulator">GitHub →</a>
+  </div>
+  <p class="ver">v0.1.0 · free &amp; open source · PPSSPP auto-installs on first run</p>
+
+  <figure class="shot">
+    <img src="shots/psp-games.png" alt="PSP XMB games screen with real box art">
+    <figcaption class="cap" style="border-top:1px solid var(--line)">The PSP shell — XMB crossbar, wave, live clock. Every game tile carries its real cover.</figcaption>
+  </figure>
+</section>
+
+<section class="wrap">
+  <div class="feats">
+    <div class="feat"><div class="dot"></div><h3>PSP XMB, for real</h3><p>The crossbar, the wave, the clock. Settings edit <code>ppsspp.ini</code> directly — backend, resolution, filters, OSD — no fake toggles.</p></div>
+    <div class="feat"><div class="dot"></div><h3>Controller-first</h3><p>Plug in a USB pad and it just works — bindings are written into PPSSPP automatically. Drive the whole UI without a keyboard.</p></div>
+    <div class="feat"><div class="dot"></div><h3>Real covers &amp; photos</h3><p>Every console shows its product shot; every game shows its box art, fetched from libretro-thumbnails when missing.</p></div>
+    <div class="feat"><div class="dot"></div><h3>Error cards, not toasts</h3><p>Missing emulator, deleted file, no Vulkan driver — you get a card with a fix button, not a message that vanishes.</p></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>Inside</h2>
+  <p class="lead">The same story at every step — launcher to shell to game.</p>
+  <div class="grid">
+    <figure><img src="shots/home.png" alt="Launcher home"><figcaption>Home — continue where you left off, consoles below.</figcaption></figure>
+    <figure><img src="shots/library.png" alt="Library grid"><figcaption>Library — uniform cover tiles, <code>/</code> to search.</figcaption></figure>
+    <figure><img src="shots/psp-sheet.png" alt="XMB option sheet"><figcaption>XMB option sheet — real <code>ppsspp.ini</code> values, picked in place.</figcaption></figure>
+    <figure><img src="shots/downloads.png" alt="Downloads"><figcaption>Downloads — PPSSPP installs and updates from the official source.</figcaption></figure>
+  </div>
+</section>
+
+<section class="dl wrap">
+  <h2>Get it</h2>
+  <p class="lead">v0.1.0 — the first release. PSP only for now; PS3, GameCube and PS2 shells come next.</p>
+  <div class="cards">
+    <a class="card" href="https://github.com/Twarga/T-emulator/releases/download/v0.1.0/t-emulator-v0.1.0-linux-x86_64.tar.gz">
+      <div class="os">LINUX · X86-64</div><div class="f">t-emulator-v0.1.0-linux-x86_64.tar.gz</div><div class="s">15 MB · unpack &amp; run</div>
+    </a>
+    <a class="card" href="https://github.com/Twarga/T-emulator/releases/download/v0.1.0/t-emulator-v0.1.0-windows-x86_64.zip">
+      <div class="os">WINDOWS · X64</div><div class="f">t-emulator-v0.1.0-windows-x86_64.zip</div><div class="s">17 MB · unzip &amp; run</div>
+    </a>
+  </div>
+  <ul class="notes">
+    <li>Needs PPSSPP — installs itself from the Downloads tab on first launch.</li>
+    <li>Games go in <code>~/Games/PSP</code> (or pick any folder in Settings): <code>.iso</code> <code>.cso</code> <code>.pbp</code>.</li>
+    <li>Controls: arrows/dpad move · Enter/A select · Esc/O back · Tab/shoulders switch section · <code>/</code> search.</li>
+    <li>Checksums ship as <code>SHA256SUMS.txt</code> on the release page.</li>
+  </ul>
+</section>
+
+<footer><div class="wrap">
+  Built with Rust + <a href="https://slint.dev">Slint</a> ·
+  <a href="https://github.com/Twarga/T-emulator">Twarga/T-emulator</a>
+</div></footer>
+</body>
+</html>

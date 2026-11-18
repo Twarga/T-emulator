@@ -7,7 +7,7 @@ import { Icons } from "../icons.slint";
 export component Home inherits Rectangle {
     in property <[ConsoleInfo]> consoles;
     in property <[RecentCard]> recents;
-    in property <int> focus;
+    in property <int> sel;
     in property <length> u: 1px;
     callback pick(int);
 
@@ -30,9 +30,9 @@ export component Home inherits Rectangle {
         width: 340 * root.u;
         height: 100 * root.u;
         border-radius: Lt.r-lg;
-        background: i == root.focus ? Lt.surface2 : Lt.surface;
+        background: i == root.sel ? Lt.surface2 : Lt.surface;
         border-width: 2px;
-        border-color: i == root.focus ? Lt.accent : #00000000;
+        border-color: i == root.sel ? Lt.accent : #00000000;
         animate background { duration: 160ms; }
         TouchArea { clicked => { root.pick(i); } }
 
@@ -84,9 +84,9 @@ export component Home inherits Rectangle {
         width: cw;
         height: ch;
         border-radius: Lt.r-lg;
-        background: i + root.r == root.focus ? Lt.surface2 : Lt.surface;
+        background: i + root.r == root.sel ? Lt.surface2 : Lt.surface;
         border-width: 2px;
-        border-color: i + root.r == root.focus ? Lt.accent : #00000000;
+        border-color: i + root.r == root.sel ? Lt.accent : #00000000;
         opacity: c.available ? 1 : 0.55;
         animate background, y, height { duration: 200ms; }
         TouchArea { clicked => { root.pick(i + root.r); } }

@@ -3,6 +3,7 @@ pub mod config;
 pub mod ini;
 pub mod launcher;
 pub mod psp;
+pub mod state;
 pub mod scanner;
 pub mod wave;
 

@@ -61,7 +61,7 @@ export component Launcher inherits Rectangle {
             height: parent.height;
             consoles: root.consoles;
             recents: root.recents;
-            focus: root.zone == 1 ? root.home-focus : -1;
+            sel: root.zone == 1 ? root.home-focus : -1;
             u: root.u;
             pick(i) => { root.home-pick(i); }
         }
@@ -69,7 +69,7 @@ export component Launcher inherits Rectangle {
             width: parent.width;
             height: parent.height;
             games: root.games;
-            focus: root.zone != 0 ? root.lib-idx : -1;
+            sel: root.zone != 0 ? root.lib-idx : -1;
             query: root.query;
             searching: root.searching;
             empty-dir: root.empty-dir;
@@ -83,7 +83,7 @@ export component Launcher inherits Rectangle {
             width: parent.width;
             height: parent.height;
             emus: root.emus;
-            focus: root.zone == 1 ? root.dl-idx : -1;
+            sel: root.zone == 1 ? root.dl-idx : -1;
             u: root.u;
             act(i) => { root.emu-act(i); }
         }
@@ -91,7 +91,7 @@ export component Launcher inherits Rectangle {
             width: parent.width;
             height: parent.height;
             rows: root.settings;
-            focus: root.zone == 1 ? root.set-idx : -1;
+            sel: root.zone == 1 ? root.set-idx : -1;
             u: root.u;
             act(i) => { root.set-act(i); }
         }

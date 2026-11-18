@@ -4,7 +4,7 @@ import { GameTile } from "../types.slint";
 
 export component Library inherits Rectangle {
     in property <[GameTile]> games;
-    in property <int> focus;
+    in property <int> sel;
     in property <string> query;
     in property <bool> searching;
     in property <string> empty-dir;
@@ -70,10 +70,10 @@ export component Library inherits Rectangle {
         clip: true;
 
         for g[i] in root.games: Rectangle {
-            property <int> row: Math.floor(i / root.cc);
-            property <int> col: i - row * root.cc;
-            x: root.grid-x + col * root.cell;
-            y: row * (150 * root.u) - root.scroll;
+            property <int> gr: Math.floor(i / root.cc);
+            property <int> gc: i - gr * root.cc;
+            x: root.grid-x + gc * root.cell;
+            y: gr * (150 * root.u) - root.scroll;
             width: 180 * root.u;
             height: 134 * root.u;
 
@@ -87,15 +87,15 @@ export component Library inherits Rectangle {
                 tone: g.tone;
                 u: root.u;
                 border-width: 2px;
-                border-color: i == root.focus ? Lt.accent : #00000000;
+                border-color: i == root.sel ? Lt.accent : #00000000;
             }
             Txt {
                 y: 108 * root.u;
                 width: parent.width;
                 text: g.title;
                 font-size: 13 * root.u;
-                font-weight: i == root.focus ? 600 : 400;
-                color: i == root.focus ? Lt.text : Lt.dim;
+                font-weight: i == root.sel ? 600 : 400;
+                color: i == root.sel ? Lt.text : Lt.dim;
                 overflow: elide;
             }
             Mono {

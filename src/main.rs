@@ -1,4 +1,4 @@
-use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, SharedString};
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -8,70 +8,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use t_emulator::adapters::ppsspp::Ppsspp;
 use t_emulator::config::Config;
 use t_emulator::launcher::{self, EmuInfo};
+use t_emulator::state::{model, refresh, toast, Ev, St};
 use t_emulator::{ini::Ini, psp, scanner, *};
 
 mod sounds;
-
-enum Ev {
-    Progress(f32),
-    Installed(Result<String, String>),
-    Latest(Option<String>),
-    VersionProbe(Option<String>),
-    GameExit,
-    FolderPicked(Option<PathBuf>),
-    Key(char),
-    ToastHide,
-}
-
-struct St {
-    cfg: Config,
-    dir: PathBuf,
-    games: Vec<scanner::Game>,
-    emu: EmuInfo,
-    installing: Arc<AtomicBool>,
-    playing: bool,
-    query: String,
-    psp_setting: String, // setting id of the open option sheet
-}
-
-fn toast(app: &App, text: &str, progress: f32, tx: &Sender<Ev>, ms: u64) {
-    app.set_toast(text.into());
-    app.set_toast_progress(progress);
-    app.set_toast_shown(true);
-    let tx = tx.clone();
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(ms));
-        let _ = tx.send(Ev::ToastHide);
-    });
-}
-
-fn model<T: Clone + 'static>(v: Vec<T>) -> ModelRc<VecModel<T>> {
-    ModelRc::new(VecModel::from(v))
-}
-
-fn refresh(app: &App, st: &St) {
-    app.set_consoles(model(launcher::console_tiles(
-        st.games.len(),
-        st.emu.installed,
-        st.emu.installing,
-    )));
-    app.set_recents(model(launcher::recent_cards(&st.cfg, &st.games)));
-    app.set_games(model(launcher::game_tiles(&st.games, &st.query)));
-    app.set_emus(model(launcher::emu_rows(&st.emu)));
-    app.set_settings(model(launcher::settings_rows(&st.cfg, &st.dir.display().to_string())));
-    app.set_attn(matches!(st.emu.state(), launcher::EmuState::Install | launcher::EmuState::Update));
-
-    let ini = Ini::load(&psp::ini_path()).unwrap_or_default();
-    let ver = st.emu.version.clone().unwrap_or_else(|| "installed".into());
-    app.set_psp_categories(model(psp::categories(
-        &st.games,
-        st.emu.installed,
-        &ver,
-        &st.dir.display().to_string(),
-        &ini,
-        st.cfg.fullscreen,
-    )));
-}
 
 fn save(st: &mut St) {
     let _ = st.cfg.save();
@@ -149,7 +89,7 @@ fn main() -> anyhow::Result<()> {
             version,
             latest: None,
             check_done: false,
-            playing: false,
+
         },
         installing: Arc::new(AtomicBool::new(false)),
         playing: false,
@@ -159,7 +99,7 @@ fn main() -> anyhow::Result<()> {
     st.borrow_mut().games = scanner::scan(&st.borrow().dir);
 
     let (tx, rx) = channel::<Ev>();
-    let tx = Rc::new(tx);
+    
 
     refresh(&app, &st.borrow());
     let (c, d) = clock_strings();
@@ -245,10 +185,10 @@ fn main() -> anyhow::Result<()> {
                     }
                     Ev::VersionProbe(v) => {
                         if b.emu.version.is_none() {
-                            b.emu.version = v;
-                            if let Some(v) = &b.emu.version {
+                            if let Some(v) = v {
                                 b.cfg.emu_versions.insert("ppsspp".into(), v.clone());
                                 let _ = b.cfg.save();
+                                b.emu.version = Some(v);
                             }
                         }
                     }

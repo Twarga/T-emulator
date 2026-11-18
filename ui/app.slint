@@ -138,8 +138,8 @@ export component App inherits Window {
         }
 
         // ── launcher: tabs row ──
-        if (k == "\t" || k == Key.Backtab) {
-            let d = k == "\t" ? 1 : -1;
+        if (k == Key.Tab || k == Key.Backtab) {
+            let d = k == Key.Tab ? 1 : -1;
             if (root.zone == 0) {
                 root.to-tab(Math.mod(root.tab + d + 4, 4));
             } else {

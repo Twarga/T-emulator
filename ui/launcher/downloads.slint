@@ -4,7 +4,7 @@ import { EmuRow } from "../types.slint";
 
 export component Downloads inherits Rectangle {
     in property <[EmuRow]> emus;
-    in property <int> focus;
+    in property <int> sel;
     in property <length> u: 1px;
     callback act(int);
 
@@ -32,9 +32,9 @@ export component Downloads inherits Rectangle {
         width: parent.width - 2 * root.pad;
         height: root.row-h;
         border-radius: Lt.r-lg;
-        background: i == root.focus ? Lt.surface2 : Lt.surface;
+        background: i == root.sel ? Lt.surface2 : Lt.surface;
         border-width: 2px;
-        border-color: i == root.focus ? Lt.accent : #00000000;
+        border-color: i == root.sel ? Lt.accent : #00000000;
         opacity: e.state == 4 ? 0.45 : 1;
         TouchArea { enabled: e.state != 4; clicked => { root.act(i); } }
 
@@ -81,7 +81,7 @@ export component Downloads inherits Rectangle {
             x: parent.width - self.width - 22 * root.u;
             y: (parent.height - self.height) / 2;
             label: e.action;
-            primary: i == root.focus;
+            primary: i == root.sel;
             u: root.u;
         }
         if e.state == 2: Mono {

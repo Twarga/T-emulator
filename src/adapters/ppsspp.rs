@@ -13,12 +13,18 @@ impl Ppsspp {
     }
     fn binary(&self) -> PathBuf { self.dir.join("PPSSPP.AppImage") }
 
-    fn download_url() -> Result<String> {
-        let resp: serde_json::Value = ureq::get(RELEASE_API)
-            .header("User-Agent", "t-emulator")
-            .call()?
-            .body_mut().read_json()?;
-        resp["assets"].as_array()
+    fn agent() -> ureq::Agent {
+        ureq::Agent::config_builder()
+            .http_status_as_error(false)
+            .timeout_global(Some(std::time::Duration::from_secs(300)))
+            .build()
+            .into()
+    }
+
+    fn download_url(agent: &ureq::Agent) -> Result<String> {
+        let mut resp = agent.get(RELEASE_API).header("User-Agent", "t-emulator").call()?;
+        let body: serde_json::Value = resp.body_mut().read_json()?;
+        body["assets"].as_array()
             .and_then(|a| a.iter().find(|x| {
                 x["name"].as_str().map(|n| n.contains("x86_64") && n.ends_with("AppImage")).unwrap_or(false)
             }))
@@ -32,31 +38,43 @@ impl EmulatorAdapter for Ppsspp {
 
     fn install(&self, progress: impl Fn(f32)) -> Result<()> {
         std::fs::create_dir_all(&self.dir)?;
-        let url = Self::download_url()?;
+        let agent = Self::agent();
+        let url = Self::download_url(&agent)?;
         tracing::info!("downloading {url}");
-        let mut resp = ureq::get(&url).header("User-Agent", "t-emulator").call()?;
-        let total = resp.headers().get("Content-Length").and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<u64>().ok()).unwrap_or(0);
-        let mut buf = Vec::new();
+
+        let mut resp = agent.get(&url).header("User-Agent", "t-emulator").call()?;
+        if resp.status().as_u16() != 200 {
+            anyhow::bail!("download failed: HTTP {}", resp.status());
+        }
+        let total = resp.headers()
+            .get("Content-Length")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(0);
+
+        let bin = self.binary();
+        let mut out = std::io::BufWriter::new(std::fs::File::create(&bin)?);
         let mut reader = resp.body_mut().as_reader();
-        let mut chunk = [0u8; 64 * 1024];
+        let mut chunk = [0u8; 256 * 1024];
         let mut got = 0u64;
         loop {
             let n = std::io::Read::read(&mut reader, &mut chunk)?;
             if n == 0 { break; }
-            buf.extend_from_slice(&chunk[..n]);
+            std::io::Write::write_all(&mut out, &chunk[..n])?;
             got += n as u64;
             if total > 0 { progress(got as f32 / total as f32); }
         }
-        let bin = self.binary();
-        std::fs::write(&bin, &buf)?;
+        std::io::Write::flush(&mut out)?;
+
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755))?;
+        tracing::info!("ppsspp installed ({} bytes)", got);
         progress(1.0);
         Ok(())
     }
 
     fn write_defaults(&self) -> Result<()> {
-        Ok(())  // patch after first launch when ini exists
+        Ok(())
     }
 
     fn launch(&self, game: &Path) -> Result<Child> {

@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use t_emulator::adapters::ppsspp::Ppsspp;
 use t_emulator::config::Config;
+use t_emulator::covers;
 use t_emulator::launcher::{self, EmuInfo};
 use t_emulator::state::{model, refresh, toast, Ev, St};
 use t_emulator::{ini::Ini, psp, scanner, *};
@@ -128,6 +129,17 @@ fn main() -> anyhow::Result<()> {
         });
     }
 
+    // ── box art: download covers for games missing one ──
+    {
+        let tx = tx.clone();
+        let titles: Vec<String> = st.borrow().games.iter().map(|g| g.title.clone()).collect();
+        std::thread::spawn(move || {
+            if !covers::fetch_missing(&titles).is_empty() {
+                let _ = tx.send(Ev::CoversDone);
+            }
+        });
+    }
+
     // ── timers: clock + wave (wave only while inside a shell) ──
     let t0 = std::time::Instant::now();
     let hue = wave::hue_for_month(month());
@@ -205,6 +217,14 @@ fn main() -> anyhow::Result<()> {
                         b.cfg.games_dir = Some(d);
                         let _ = b.cfg.save();
                         b.games = scanner::scan(&b.dir);
+                        let titles: Vec<String> =
+                            b.games.iter().map(|g| g.title.clone()).collect();
+                        let txf = txp.clone();
+                        std::thread::spawn(move || {
+                            if !covers::fetch_missing(&titles).is_empty() {
+                                let _ = txf.send(Ev::CoversDone);
+                            }
+                        });
                         app.set_empty_dir(b.dir.display().to_string().into());
                         toast(&app, "Games folder updated", -1.0, &txp, 2000);
                     }
@@ -218,6 +238,7 @@ fn main() -> anyhow::Result<()> {
                             text: s,
                         });
                     }
+                    Ev::CoversDone => {} // refresh() below re-reads cover paths
                     Ev::ToastHide => app.set_toast_shown(false),
                 }
                 refresh(&app, &b);

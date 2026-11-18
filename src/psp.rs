@@ -293,7 +293,16 @@ pub fn categories(
         games
             .iter()
             .enumerate()
-            .map(|(i, g)| item(&format!("g{i}"), &g.title, &format!("PSP  ·  {}", g.size), "", "disc"))
+            .map(|(i, g)| {
+                let mut it = item(&format!("g{i}"), &g.title, &format!("PSP  ·  {}", g.size), "", "disc");
+                if let Some(img) = crate::covers::path_for(&g.title)
+                    .and_then(|p| slint::Image::load_from_path(&p).ok())
+                {
+                    it.art = img;
+                    it.has_art = true;
+                }
+                it
+            })
             .collect()
     };
 

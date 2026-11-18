@@ -1,5 +1,5 @@
 import { Lt } from "theme.slint";
-import { Txt, Mono, Cover, KeyChip } from "widgets.slint";
+import { Txt, Mono, Tile, KeyChip } from "widgets.slint";
 import { GameTile } from "../types.slint";
 
 export component Library inherits Rectangle {
@@ -15,25 +15,25 @@ export component Library inherits Rectangle {
     callback open-folder();
 
     property <length> pad: 48 * root.u;
-    property <int> cc: Math.max(2, Math.floor((root.width - 2 * root.pad) / (196 * root.u)));
+    property <int> cc: Math.max(2, Math.floor((root.width - 2 * root.pad) / (152 * root.u)));
     changed cc => { root.cols = cc; }
 
-    property <length> cell: 196 * root.u;
+    property <length> cell: 152 * root.u;
     property <length> grid-x: (root.width - (cc * root.cell - 16 * root.u)) / 2;
-    property <length> grid-y: 96 * root.u;
+    property <length> grid-y: 68 * root.u;
     property <length> grid-h: root.height - root.grid-y - 12 * root.u;
 
     // ── header ──
     Txt {
         x: root.pad;
-        y: 14 * root.u;
+        y: 8 * root.u;
         text: "Library";
         font-size: 24 * root.u;
         font-weight: 600;
     }
     Mono {
         x: root.pad + 112 * root.u;
-        y: 22 * root.u;
+        y: 16 * root.u;
         text: root.games.length + " games";
         font-size: 12 * root.u;
         color: Lt.faint;
@@ -42,7 +42,7 @@ export component Library inherits Rectangle {
     // search field (keyboard-driven: / opens, type to filter, Esc clears)
     Rectangle {
         x: parent.width - root.pad - 300 * root.u;
-        y: 10 * root.u;
+        y: 6 * root.u;
         width: 300 * root.u;
         height: 38 * root.u;
         border-radius: 19 * root.u;
@@ -69,42 +69,21 @@ export component Library inherits Rectangle {
         height: root.grid-h;
         clip: true;
 
-        for g[i] in root.games: Rectangle {
+        for g[i] in root.games: Tile {
             property <int> gr: Math.floor(i / root.cc);
             property <int> gc: i - gr * root.cc;
             x: root.grid-x + gc * root.cell;
-            y: gr * (150 * root.u) - root.scroll;
-            width: 180 * root.u;
-            height: 134 * root.u;
-
-            Cover {
-                x: 0;
-                y: 0;
-                width: parent.width;
-                height: 104 * root.u;
-                title: g.title;
-                console: g.console;
-                tone: g.tone;
-                letter: g.letter;
-                u: root.u;
-                border-width: 2px;
-                border-color: i == root.sel ? Lt.accent : #00000000;
-            }
-            Txt {
-                y: 108 * root.u;
-                width: parent.width;
-                text: g.title;
-                font-size: 13 * root.u;
-                font-weight: i == root.sel ? 600 : 400;
-                color: i == root.sel ? Lt.text : Lt.dim;
-                overflow: elide;
-            }
-            Mono {
-                y: 124 * root.u;
-                text: g.sub;
-                font-size: 10 * root.u;
-                color: Lt.faint;
-            }
+            y: gr * (262 * root.u) - root.scroll;
+            art: g.cover;
+            has-art: g.has-cover;
+            title: g.title;
+            console: g.console;
+            sub: g.sub;
+            tone: g.tone;
+            letter: g.letter;
+            sel: i == root.sel;
+            cw: 120 * root.u;
+            u: root.u;
             TouchArea { clicked => { root.pick(i); } }
         }
     }

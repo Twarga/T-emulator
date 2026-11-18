@@ -20,6 +20,7 @@ pub enum Ev {
     FolderPicked(Option<PathBuf>),
     Key(char),
     ToastHide,
+    CoversDone,
 }
 
 pub struct St {
@@ -92,13 +93,14 @@ pub fn demo() -> St {
         dir: "/home/dan/Games/PSP".into(),
         games: vec![
             mk("God of War Ghost of Sparta", "1.6 GB"),
-            mk("Persona 3 Portable", "1.1 GB"),
+            mk("Shin Megami Tensei - Persona 3 Portable", "1.1 GB"),
             mk("Patapon 3", "620 MB"),
             mk("Crisis Core Final Fantasy VII", "1.7 GB"),
             mk("Monster Hunter Freedom Unite", "880 MB"),
             mk("Daxter", "1.0 GB"),
+            mk("Patapon 2", "500 MB"),
             mk("LocoRoco 2", "1.3 GB"),
-            mk("Final Fantasy Tactics", "230 MB"),
+            mk("Final Fantasy Tactics - The War of the Lions", "230 MB"),
         ],
         emu: EmuInfo {
             installed: true,

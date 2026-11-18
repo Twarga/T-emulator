@@ -1,9 +1,9 @@
 import { Lt } from "theme.slint";
-import { Txt, Mono, Cover, Btn } from "widgets.slint";
+import { Txt, Mono, Tile } from "widgets.slint";
 import { ConsoleInfo, RecentCard } from "../types.slint";
 import { Icons } from "../icons.slint";
 
-// focus: 0..r-1 = recent cards, r..r+3 = console tiles
+// focus: 0..r-1 = recent tiles, r..r+3 = console tiles
 export component Home inherits Rectangle {
     in property <[ConsoleInfo]> consoles;
     in property <[RecentCard]> recents;
@@ -13,6 +13,7 @@ export component Home inherits Rectangle {
 
     property <int> r: root.recents.length;
     property <length> pad: 48 * root.u;
+    property <length> rch: 250 * root.u;   // recent tile height incl. caption
 
     // ── continue playing ──
     Mono {
@@ -24,54 +25,26 @@ export component Home inherits Rectangle {
         letter-spacing: 2 * root.u;
         color: Lt.faint;
     }
-    for g[i] in root.recents: Rectangle {
-        x: root.pad + i * (356 * root.u);
-        y: 34 * root.u;
-        width: 340 * root.u;
-        height: 100 * root.u;
-        border-radius: Lt.r-lg;
-        background: i == root.sel ? Lt.surface2 : Lt.surface;
-        border-width: 2px;
-        border-color: i == root.sel ? Lt.accent : #00000000;
-        animate background { duration: 160ms; }
+    for g[i] in root.recents: Tile {
+        x: root.pad + i * (138 * root.u);
+        y: 32 * root.u;
+        art: g.cover;
+        has-art: g.has-cover;
+        title: g.title;
+        console: "PSP";
+        sub: g.ago;
+        tone: g.tone;
+        letter: g.letter;
+        sel: i == root.sel;
+        cw: 104 * root.u;
+        u: root.u;
         TouchArea { clicked => { root.pick(i); } }
-
-        Cover {
-            x: 10 * root.u;
-            y: 10 * root.u;
-            width: 142 * root.u;
-            height: 80 * root.u;
-            title: g.title;
-            console: "PSP";
-            tone: g.tone;
-            letter: g.letter;
-            u: root.u;
-        }
-        Txt {
-            x: 164 * root.u;
-            y: 18 * root.u;
-            width: 164 * root.u;
-            text: g.title;
-            font-size: 15 * root.u;
-            font-weight: 500;
-            wrap: word-wrap;
-            max-height: 44 * root.u;
-            overflow: elide;
-            vertical-alignment: top;
-        }
-        Mono {
-            x: 164 * root.u;
-            y: 66 * root.u;
-            text: g.ago;
-            font-size: 11 * root.u;
-            color: Lt.faint;
-        }
     }
 
     // ── consoles ──
     Mono {
         x: root.pad;
-        y: root.r > 0 ? 158 * root.u : 12 * root.u;
+        y: root.r > 0 ? 32 * root.u + root.rch + 12 * root.u : 12 * root.u;
         text: "CONSOLES";
         font-size: 11 * root.u;
         letter-spacing: 2 * root.u;
@@ -79,9 +52,9 @@ export component Home inherits Rectangle {
     }
     for c[i] in root.consoles: Rectangle {
         property <length> cw: (root.width - 2 * root.pad - 3 * 24 * root.u) / 4;
-        property <length> ch: root.r > 0 ? 264 * root.u : 348 * root.u;
+        property <length> ch: root.height - self.y - 40 * root.u;
         x: root.pad + i * (cw + 24 * root.u);
-        y: root.r > 0 ? 182 * root.u : 36 * root.u;
+        y: root.r > 0 ? 32 * root.u + root.rch + 36 * root.u : 36 * root.u;
         width: cw;
         height: ch;
         border-radius: Lt.r-lg;
@@ -94,13 +67,12 @@ export component Home inherits Rectangle {
 
         Image {
             source: Icons.device(c.kind);
-            colorize: Lt.text;
-            width: cw - 80 * root.u;
-            height: ch * 0.44;
-            x: 40 * root.u;
-            y: 30 * root.u;
+            width: cw - 64 * root.u;
+            height: ch * 0.46;
+            x: 32 * root.u;
+            y: 24 * root.u;
             image-fit: contain;
-            opacity: c.available ? 0.92 : 0.5;
+            opacity: c.available ? 0.95 : 0.5;
         }
         Txt {
             x: 26 * root.u;

@@ -2,6 +2,7 @@
 //! the Slint side only renders what these return.
 
 use crate::config::Config;
+use crate::covers;
 use crate::scanner::Game;
 use crate::{ConsoleInfo, EmuRow, GameTile, RecentCard, SetRow};
 
@@ -42,19 +43,31 @@ pub fn game_tiles(games: &[Game], query: &str) -> Vec<GameTile> {
         .iter()
         .enumerate()
         .filter(|(_, g)| q.is_empty() || g.title.to_lowercase().contains(&q))
-        .map(|(i, g)| GameTile {
-            idx: i as i32,
-            title: g.title.clone().into(),
-            console: "PSP".into(),
-            sub: g.size.clone().into(),
-            tone: tone(&g.title),
-            letter: g.title.chars().next().unwrap_or('·').into(),
+        .map(|(i, g)| {
+            let (cover, has_cover) = load_cover(&g.title);
+            GameTile {
+                idx: i as i32,
+                title: g.title.clone().into(),
+                console: "PSP".into(),
+                sub: g.size.clone().into(),
+                tone: tone(&g.title),
+                letter: g.title.chars().next().unwrap_or('·').into(),
+                cover,
+                has_cover,
+            }
         })
         .collect()
 }
 
 /// Most recent plays that still resolve to a scanned game, newest first.
 /// Returns (tile, real game index) pairs capped at 3.
+fn load_cover(title: &str) -> (slint::Image, bool) {
+    match covers::path_for(title).and_then(|p| slint::Image::load_from_path(&p).ok()) {
+        Some(img) => (img, true),
+        None => (Default::default(), false),
+    }
+}
+
 pub fn recent_cards(cfg: &Config, games: &[Game]) -> Vec<RecentCard> {
     let mut out = Vec::new();
     for (path, ts) in &cfg.recents {
@@ -62,12 +75,15 @@ pub fn recent_cards(cfg: &Config, games: &[Game]) -> Vec<RecentCard> {
             break;
         }
         if let Some((i, g)) = games.iter().enumerate().find(|(_, g)| &g.path == path) {
+            let (cover, has_cover) = load_cover(&g.title);
             out.push(RecentCard {
                 idx: i as i32,
                 title: g.title.clone().into(),
                 ago: Config::ago(*ts).into(),
                 tone: tone(&g.title),
                 letter: g.title.chars().next().unwrap_or('·').into(),
+                cover,
+                has_cover,
             });
         }
     }

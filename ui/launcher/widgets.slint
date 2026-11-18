@@ -12,43 +12,92 @@ export component Mono inherits Text {
     vertical-alignment: center;
 }
 
-// ── typographic game cover (no box art yet) ──
-export component Cover inherits Rectangle {
+// ── game tile: real box art at PSP cover ratio, typographic fallback ──
+// One tile everywhere — library grid, continue strip, demos.
+export component Tile inherits Rectangle {
+    in property <image> art;
+    in property <bool> has-art;
     in property <string> title;
     in property <string> console;
+    in property <string> sub;
     in property <int> tone;
     in property <string> letter;
+    in property <bool> sel;
     in property <length> u: 1px;
-    background: Lt.tones[Math.mod(Math.max(0, root.tone), Lt.tones.length)];
-    border-radius: Lt.r-sm;
-    clip: true;
+    in property <length> cw: 120 * u;   // cover width
+    property <length> chh: cw / 0.581; // cover height (box-art ratio)
+    width: cw + 16 * u;
+    height: 8 * u + chh + 8 * u + (root.sub != "" ? 46 * u : 32 * u);
+    border-radius: Lt.r-lg;
+    background: root.sel ? Lt.surface2 : #00000000;
+    animate background { duration: 160ms; }
 
-    // faint oversized first letter, bottom-right — the tile's only ornament
-    Txt {
-        x: parent.width - self.width - 10 * root.u;
-        y: parent.height - self.height - 2 * root.u;
-        text: root.letter;
-        font-size: 88 * root.u;
-        font-weight: 600;
-        color: #ffffff12;
+    Rectangle {
+        x: 8 * u;
+        y: 8 * u;
+        width: root.cw;
+        height: root.chh;
+        border-radius: Lt.r-sm;
+        clip: true;
+        border-width: root.sel ? 2px : 0px;
+        border-color: Lt.accent;
+        background: Lt.tones[Math.mod(Math.max(0, root.tone), Lt.tones.length)];
+
+        if root.has-art: Image {
+            width: parent.width;
+            height: parent.height;
+            source: root.art;
+            image-fit: cover;
+        }
+        if !root.has-art: Rectangle {
+            Txt {
+                x: parent.width - self.width - 8 * u;
+                y: parent.height - self.height - 4 * u;
+                text: root.letter;
+                font-size: 64 * u;
+                font-weight: 600;
+                color: #ffffff12;
+            }
+            Mono {
+                x: 8 * u;
+                y: 7 * u;
+                text: root.console;
+                font-size: 8 * u;
+                letter-spacing: 1.6 * u;
+                color: #ffffffb0;
+            }
+            Txt {
+                x: 8 * u;
+                y: 20 * u;
+                width: parent.width - 16 * u;
+                text: root.title;
+                font-size: 12 * u;
+                font-weight: 500;
+                wrap: word-wrap;
+                color: #fffdf8;
+            }
+        }
     }
-    Mono {
-        x: 10 * root.u;
-        y: 9 * root.u;
-        text: root.console;
-        font-size: 10 * root.u;
-        letter-spacing: 2 * root.u;
-        color: #ffffffb0;
-    }
     Txt {
-        x: 10 * root.u;
-        y: 24 * root.u;
-        width: parent.width - 20 * root.u;
+        x: 9 * u;
+        y: 8 * u + root.chh + 8 * u;
+        width: root.cw - 2 * u;
         text: root.title;
-        font-size: 15 * root.u;
-        font-weight: 500;
+        font-size: 11.5 * u;
+        font-weight: root.sel ? 600 : 400;
+        color: root.sel ? Lt.text : Lt.dim;
         wrap: word-wrap;
-        color: #fffdf8;
+        max-height: 28 * u;
+        overflow: elide;
+    }
+    if root.sub != "": Mono {
+        x: 9 * u;
+        y: parent.height - 14 * u;
+        width: root.cw - 2 * u;
+        text: root.sub;
+        font-size: 9.5 * u;
+        color: Lt.faint;
+        overflow: elide;
     }
 }
 

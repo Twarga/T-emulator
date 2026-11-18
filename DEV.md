@@ -1,11 +1,27 @@
 # Dev notes
 
 Build:        cargo build --release        (binary: target/release/t-emulator)
-Run:          ./t-emulator
-Test:         cargo test                   (drives the real UI with key events, no display)
-Screenshots:  cargo build --bin shot && ./target/debug/shot <launcher|launcher2|boot|boot2|xmb|xmb-settings|toast> out.png [w h]
-              (writes out.png.ppm; the UI is rendered headless so any screen can be inspected without a display)
+Run:          ./target/debug/t-emulator
+Test:         cargo test                   (unit tests + key-driven UI nav, no display)
+Screenshots:  cargo run --bin shot <screen> out.png [w h]
+              screens: home home-tabs home-empty home-locked library library-search
+                       library-empty downloads downloads-busy downloads-update
+                       settings boot psp-games psp-settings psp-system psp-sheet
+                       playing toast
 
-State:        ~/.config/t-emulator/config.toml
-Emulators:    ~/.local/share/t-emulator/emulators/ppsspp/
+State:        ~/.config/t-emulator/config.toml   (games_dir, sounds, fullscreen,
+              update_check, recents, emu_versions)
+Emulators:    ~/.local/share/t-emulator/emulators/ppsspp/PPSSPP.AppImage
+PPSSPP conf:  ~/.config/ppsspp/PSP/SYSTEM/ppsspp.ini  (XMB settings write here
+              via src/ini.rs — patches one key, preserves the file)
 Games:        ~/Games/PSP  (.iso .cso .pbp)
+
+Layout:       src/launcher.rs  data builders for launcher pages
+              src/psp.rs       PSP shell: XMB content + ppsspp.ini schema
+              src/ini.rs       surgical ini editor (BOM/comments/CRLF-safe)
+              src/state.rs     St + Ev + refresh() — UI is a pure function of St
+              src/adapters/    emulator adapters (ppsspp)
+              ui/app.slint     root: modes, nav state machine, overlays
+              ui/launcher/     launcher pages (theme, widgets, topbar, home,
+                               library, downloads, settings)
+              ui/psp.slint     PSP shell (XMB + option sheet)

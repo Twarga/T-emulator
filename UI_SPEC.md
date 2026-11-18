@@ -1,167 +1,89 @@
 # T-EMULATOR — UI Specification (Slint)
 
-Hand this to whoever builds the UI. Stack: **Slint + Rust**, native GPU rendering, zero webview. Two window modes in ONE binary: `--manager` (default, windowed) and `--skin <console>` (fullscreen, borderless).
+Stack: **Slint + Rust**, native rendering, zero webview. ONE binary, one window.
+Modes: `0` launcher → `1` power-on veil → `2` console shell.
 
 ---
 
-## 1. Design principles (non-negotiable)
+## 1. Architecture
 
-- **Native feel:** real fonts (Inter/Noto Sans), real GPU animation (60fps+), no Electron look. Rounded corners tasteful (8–12px), not blobby.
-- **Gamepad-first EVERYWHERE:** every screen navigable by dpad/stick. Focus rings visible. Keyboard (arrows/enter/esc) and gamepad are equal citizens; mouse secondary.
-- **60fps motion:** all transitions 200–350ms, ease-out cubic. Never instant snaps. Slint `animate` on all property changes.
-- **Dark-first:** base palette dark; every console skin re-tints it. No pure black (#0a0a0f range, not #000).
-- **One accent per mode:** manager accent = neutral indigo; each console skin has its OWN accent (PS3 blue-white, GC purple, 360 green, Vita teal).
+The app is a **launcher with shells**, not a manager with skins.
 
-## 2. Palette / tokens
+- **Launcher** — neutral identity: warm graphite, one ember accent, IBM Plex Sans/Mono.
+  Four sections in a top tab bar: **Home · Library · Downloads · Settings**.
+- **Shell** — per-console module owning its look, font, background, and logic.
+  Entering one = powering on that console (boot veil → its real menu).
+  PSP = XMB: procedural wave, white-on-color, Inter.
+- The launcher stays deliberately colorless so each shell's color is the console's own.
 
-```
-bg          #0e0e14
-surface     #16161f
-surface2    #1e1e2a
-border      #2a2a38
-text        #e8e8f0
-text-dim    #8a8a9e
-accent      #6e6eff   (manager)
-accent-xmb  #4ea8ff   (PS3/PSP blue)
-accent-gc   #6a4fff   (GC purple)
-accent-360  #3ddc84   (360 green)
-danger      #ff5a5a
-radius      10px
-font-ui     Inter / Noto Sans 13–14px body, 20–28px headings
-font-clock  monospace-ish for XMB clock (real XMB shows clock top-right)
-```
+Isolation rule: console shell code lives in `src/psp.rs` + `ui/psp.slint` and
+knows PPSSPP specifics; launcher code (`src/launcher.rs`, `ui/launcher/*`) knows
+nothing about any emulator's config.
 
-## 3. Screen inventory
+## 2. Navigation model
 
-### 3.1 MANAGER window (1200×750 default, resizable)
+Keyboard + gamepad first; mouse works as a bonus (clicks activate directly).
 
-Left sidebar (240px) + main content.
+- **Tab bar zone** (`zone 0`): `←/→` or `Tab`/`Shift+Tab` switch sections,
+  `↓`/`Enter` enters content, `Esc` quits.
+- **Content zone** (`zone 1`): arrows move spatially, `Enter` activates,
+  `Esc`/`Tab` lifts back to the tab bar.
+- **Library search** (`zone 2`): `/` opens, type to filter live,
+  `Esc` clears, `Enter`/`↓` jumps into results.
+- **PSP shell**: `←/→` categories, `↑/↓` items, `Enter` activate
+  (settings rows open an option sheet: `↑/↓` choose, `Enter` apply, `Esc` back).
+- **Gamepad** (gilrs): dpad+stick → arrows, A → Enter, B → Esc, LB/RB → Backtab/Tab.
+- While a game runs, an overlay eats every key.
 
-```
-┌─────────────────────────────────────────────┐
-│  T-EMULATOR              🔍 search    ⚙       │
-├──────────┬──────────────────────────────────┤
-│ CONSOLES │   [active page content]          │
-│  • PSP   │                                  │
-│  • PS3   │                                  │
-│  • GC/Wii│                                  │
-│  + more  │                                  │
-│          │                                  │
-│ LIBRARY  │                                  │
-│  Games   │                                  │
-│  Updates │                                  │
-│          │                                  │
-│ SYSTEM   │                                  │
-│  Emulators│                                 │
-│  Firmware │                                 │
-│  Controller│                                │
-│  Settings │                                 │
-└──────────┴──────────────────────────────────┘
-```
+Nav is a pure state machine in `ui/app.slint::nav()` — `tests/flow.rs` drives
+it with real key events, no display needed.
 
-**Pages:**
-
-**a) Console picker (default home)** — the heart.
-- Grid of large console cards (~260×160): console artwork/glow background, name, status badge (`Ready`, `Needs setup`, `Experimental`, `Not installed`)
-- Hover/focus: card lifts (shadow + 1.03 scale), accent-tinted glow
-- ENTER → full console-OS skin (§3.2)
-- Bottom strip: "N emulators installed · M games found · updates available"
-
-**b) Emulators page** — per-emulator row cards:
-`icon | name | version installed → latest | [Update] [Settings] [Remove] | status dot`
-- Top bar: "Check for updates" + "Update all" buttons
-- Update state: inline progress bar inside the row (no modal!)
-
-**c) Firmware page** — checklist:
-`PS3 firmware: ✅ installed (4.91) · PSP: not needed · PS2 BIOS: ⚠ user file required [Browse…]`
-- One-click "Download & install" for public firmware only
-- Legal note line under each user-required item
-
-**d) Controller page** — gamepad diagram (SVG), press-to-map, test area, per-emulator "apply to" chips. Visual button highlight when pressed.
-
-**e) Library/Games** — all games across consoles, flat grid w/ console filter chips, cover art, "Play in <console>" button.
-
-**f) Settings** — app prefs: theme accent, auto-update toggle, games root folders, animations on/off, launch-on-start.
-
-**g) First-run wizard** (fullscreen, 4 steps): welcome → pick games folder → auto-detect hardware → summary "everything configured" → Enter XMB. One screen per step, big type, minimal text.
-
-### 3.2 CONSOLE SKINS (fullscreen, borderless, Esc/Circle = exit to manager)
-
-Each is a SEPARATE Slint component sharing a `SkinBase` (focus mgmt, nav sounds, back-stack).
-
-**XMB (PSP/PS3/PS2 flavor) — flagship:**
-```
-        ← Settings  Users  Photos  [GAMES]  Video  Network →   ← categories scroll horizontally
-                    │  t-emulator: focus column centered,
-              🕐 clock+date top-right
-                    │  vertical list under active category:
-              🎮 God of War Ghost of Sparta
-              🎮 Persona 3 Portable      ← focused item enlarges + shows info panel right side
-              🎮 Patapon 3
-   ~ wave background, animated continuously (two sine ribbons drifting) ~
-```
-- Wave: 2–3 translucent sine-ribbon layers, slow drift, color = accent-xmb; per-month gradient tint (real XMB behavior: hue shifts by month)
-- Categories: horizontal scroll, focus snaps to center, others shrink+dim
-- Items: vertical under focused category; focus = bigger icon + slide-in info panel (title, size, last played, "Press X to play")
-- Sounds: nav tick, select, back — subtle, toggleable
-- Boot sequence on entering skin: fade from black + coldboot animation (1–1.5s, skippable)
-
-**GC menu skin:** channel-style tile grid, purple accent, the rotating-cube boot recreated (not ripped).
-**Blades/NXE (360):** left-panel tabs + white tiles, green accent.
-**Switch grid:** minimal, huge tiles, dark/light.
-**PS5 home:** horizontal hero row + activity cards — build LAST (backend immature).
-
-### 3.3 Shared components (build once)
-
-- `FocusScope` — dpad/stick/arrows focus graph, wrap behavior
-- `TileCard` — cover, title, status, focus-glow
-- `InfoPanel` — game details slide-in
-- `WaveBg` — parameterized sine-ribbon shader/vector (used by all Sony skins)
-- `BootSplash` — console coldboot animation player
-- `ProgressRow`, `Badge`, `Wizard`, `ControllerDiagram`, `UpdateToast`
-
-## 4. Slint file layout
+## 3. Launcher identity
 
 ```
-ui/
-├── tokens.slint        # palette, fonts, radii (globals)
-├── app.slint           # manager root window
-├── pages/
-│   ├── picker.slint
-│   ├── emulators.slint
-│   ├── firmware.slint
-│   ├── controller.slint
-│   ├── library.slint
-│   └── settings.slint
-├── wizard.slint
-├── components/
-│   ├── focus.slint  tilecard.slint  infopanel.slint
-│   ├── wavebg.slint progressrow.slint  badge.slint
-│   └── bootsplash.slint
-└── skins/
-    ├── xmb.slint        # takes theme param {accent, categories[]}
-    ├── gcmenu.slint
-    ├── blades.slint
-    └── (stubs for switch/ps5/vita)
+bg        #161411   surface #1e1a15   surface2 #262019   line #3a3229
+text      #ede7dd   dim     #a89e90   faint    #6f675c
+accent    #ff5a2a   (ember — focus rings + primary actions ONLY)
+ok        #7dc98f   (installed/ready states)
+radii     12px cards, 6px chips
+fonts     IBM Plex Sans (UI), IBM Plex Mono (labels/paths/versions)
+covers    typographic tiles — one of 6 muted tones picked by title hash,
+          giant first-letter ghost, console tag top-left
 ```
 
-Skin component contract — every skin implements:
-```slint
-component ConsoleSkin {
-    in property <[GameModel]> games;
-    in property <[string]> categories;
-    callback play_game(string);   // → Rust adapter.launch()
-    callback exit_console();      // → back to manager
-}
-```
+- **Home**: `CONTINUE` strip (up to 3 recents) + `CONSOLES` tile row
+  (4 up: PSP ready, PS3/GC/PS2 locked, greyed "Coming later").
+- **Library**: responsive grid of cover tiles, `/` search pill, empty state
+  with "Open games folder".
+- **Downloads**: emulator rows with states Install → Update → Ready
+  (progress bar inline while Busy) + planned rows marked "Later".
+- **Settings**: labeled rows — games folder (zenity/kdialog picker), rescan,
+  sounds / fullscreen / update-check toggles, version.
 
-## 5. Hand-off priorities
+## 4. PSP shell
 
-Build order for whoever implements:
-1. `tokens.slint` + `app.slint` + `picker.slint` skeleton (manager shell)
-2. `wavebg.slint` + `xmb.slint` (the wave is THE asset — get it right first)
-3. Focus system + gamepad input
-4. Boot splash + transitions
-5. Everything else pages
+- Procedural `wave.rs` render (month-tinted hue, ~20 fps, only while a shell
+  is on screen), XMB crossbar at `anchor-x ≈ 23.5%` / `cross-y ≈ 28.5%`.
+- Categories: **Settings · Games · System** (icons: sliders/gamepad/gear).
+- Settings rows carry a right-aligned **value** column backed by the real
+  `~/.config/ppsspp/PSP/SYSTEM/ppsspp.ini` — backend, resolution, texture
+  filtering, anisotropy, frame skip, auto-skip, OSD flags, volume
+  (Fullscreen lives in our config). Writes go through `ini.rs`, which patches
+  single keys and preserves the rest of the file (BOM, comments, order).
+- Option sheet: dark floating list beside the focused row, check on current.
 
-Wave reference for fidelity: port math from OpenXMB / xmb-web repos (in PLAN.md §3) — do NOT approximate by eye, the wave IS the product.
+## 5. Data flow
+
+All lists are structs in `ui/types.slint`; Rust owns every value via
+`state::refresh()` — the UI is a pure function of `state::St`. Background work
+(install progress, update check, game exit, folder picker, gamepad) arrives as
+`Ev` events on one channel, drained by an 80 ms timer on the UI thread.
+
+## 6. Verification
+
+- `cargo test` — unit tests (ini patcher, settings flags, scanner, config)
+  + `tests/flow.rs` (key-driven nav, headless).
+- `cargo run --bin shot <screen>` — renders any screen to PNG headless:
+  `home home-tabs home-empty home-locked library library-search library-empty
+   downloads downloads-busy downloads-update settings boot
+   psp-games psp-settings psp-system psp-sheet playing toast`

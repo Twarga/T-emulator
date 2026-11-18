@@ -23,14 +23,14 @@ export component Launcher inherits Rectangle {
     in property <string> empty-dir;
     in property <length> u: 1px;
 
-    in-out property <int> tab;
-    in-out property <int> zone;          // 0 tabs, 1 content, 2 searching
-    in-out property <int> home-focus;   // 0..r-1 recents, r..r+3 consoles
-    in-out property <int> lib-idx;
-    in-out property <int> dl-idx;
-    in-out property <int> set-idx;
+    in property <int> tab;
+    in property <int> zone;          // 0 tabs, 1 content, 2 searching
+    in property <int> home-focus;   // 0..r-1 recents, r..r+3 consoles
+    in property <int> lib-idx;
+    in property <int> dl-idx;
+    in property <int> set-idx;
     in-out property <int> lib-cols;
-    in-out property <length> lib-scroll;
+    in property <length> lib-scroll;
 
     callback pick-tab(int);
     callback home-pick(int);
@@ -41,7 +41,7 @@ export component Launcher inherits Rectangle {
 
     TopBar {
         width: parent.width;
-        tab <=> root.tab;
+        tab: root.tab;
         zone: root.zone;
         clock: root.clock;
         date: root.date;
@@ -61,7 +61,7 @@ export component Launcher inherits Rectangle {
             height: parent.height;
             consoles: root.consoles;
             recents: root.recents;
-            focus: root.home-focus;
+            focus: root.zone == 1 ? root.home-focus : -1;
             u: root.u;
             pick(i) => { root.home-pick(i); }
         }
@@ -69,12 +69,12 @@ export component Launcher inherits Rectangle {
             width: parent.width;
             height: parent.height;
             games: root.games;
-            focus <=> root.lib-idx;
+            focus: root.zone != 0 ? root.lib-idx : -1;
             query: root.query;
             searching: root.searching;
             empty-dir: root.empty-dir;
             cols <=> root.lib-cols;
-            scroll <=> root.lib-scroll;
+            scroll: root.lib-scroll;
             u: root.u;
             pick(i) => { root.lib-pick(i); }
             open-folder() => { root.open-folder(); }
@@ -83,7 +83,7 @@ export component Launcher inherits Rectangle {
             width: parent.width;
             height: parent.height;
             emus: root.emus;
-            focus: root.dl-idx;
+            focus: root.zone == 1 ? root.dl-idx : -1;
             u: root.u;
             act(i) => { root.emu-act(i); }
         }
@@ -91,7 +91,7 @@ export component Launcher inherits Rectangle {
             width: parent.width;
             height: parent.height;
             rows: root.settings;
-            focus: root.set-idx;
+            focus: root.zone == 1 ? root.set-idx : -1;
             u: root.u;
             act(i) => { root.set-act(i); }
         }
@@ -116,16 +116,18 @@ export component Launcher inherits Rectangle {
             LHint { key: "Esc"; label: "Quit"; u: root.u; }
         }
         HorizontalLayout {
-            x: root.zone == 2 ? 0 : (root.zone == 1 ? 0 : 400 * root.u);
+            x: root.zone != 0 ? 0 : 400 * root.u;
             height: parent.height;
             padding-left: 48 * root.u;
             spacing: 30 * root.u;
             animate x { duration: 160ms; }
-            LHint { key: "↑  ↓  ←  →"; label: "Move"; u: root.u; }
-            LHint { key: "Enter"; label: root.tab == 0 ? "Power on" : (root.tab == 1 ? "Play" : "Select"); u: root.u; }
-            LHint { key: "Tab"; label: "Next section"; u: root.u; }
-            LHint { key: "Esc"; label: "Back"; u: root.u; }
-            if root.tab == 1: LHint { key: "/"; label: "Search"; u: root.u; }
+            if root.zone == 2: LHint { key: "type"; label: "Filter"; u: root.u; }
+            if root.zone == 2: LHint { key: "Esc"; label: "Clear"; u: root.u; }
+            if root.zone == 1: LHint { key: "↑  ↓  ←  →"; label: "Move"; u: root.u; }
+            if root.zone == 1: LHint { key: "Enter"; label: root.tab == 0 ? "Power on" : (root.tab == 1 ? "Play" : "Select"); u: root.u; }
+            if root.zone == 1: LHint { key: "Tab"; label: "Next section"; u: root.u; }
+            if root.zone == 1: LHint { key: "Esc"; label: "Back"; u: root.u; }
+            if root.zone == 1 && root.tab == 1: LHint { key: "/"; label: "Search"; u: root.u; }
         }
     }
 }

@@ -4,7 +4,7 @@ use std::io::Cursor;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::OnceLock;
 
-static TX: OnceLock<Sender<&'static str>> = OnceLock::new();
+static TX: OnceLock<Sender<&'static [u8]>> = OnceLock::new();
 
 fn bytes(name: &str) -> &'static [u8] {
     match name {
@@ -14,13 +14,13 @@ fn bytes(name: &str) -> &'static [u8] {
     }
 }
 
-pub fn play(name: &'static str) {
+pub fn play(name: &str) {
     let tx = TX.get_or_init(|| {
-        let (tx, rx) = channel::<&'static str>();
+        let (tx, rx) = channel::<&'static [u8]>();
         std::thread::spawn(move || {
             let Ok((_stream, handle)) = OutputStream::try_default() else { return };
-            while let Ok(n) = rx.recv() {
-                if let (Ok(sink), Ok(dec)) = (Sink::try_new(&handle), Decoder::new(Cursor::new(bytes(n)))) {
+            while let Ok(wav) = rx.recv() {
+                if let (Ok(sink), Ok(dec)) = (Sink::try_new(&handle), Decoder::new(Cursor::new(wav))) {
                     sink.append(dec);
                     sink.detach();
                 }
@@ -28,5 +28,5 @@ pub fn play(name: &'static str) {
         });
         tx
     });
-    let _ = tx.send(name);
+    let _ = tx.send(bytes(name));
 }

@@ -88,7 +88,6 @@ pub struct EmuInfo {
     pub version: Option<String>,
     pub latest: Option<String>,
     pub check_done: bool,
-    pub playing: bool,
 }
 
 impl EmuInfo {

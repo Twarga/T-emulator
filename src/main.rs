@@ -1,59 +1,207 @@
-use slint::{ComponentHandle, ModelRc, VecModel};
+use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{channel, Sender};
 use std::sync::Arc;
-use t_emulator::{adapters::ppsspp::Ppsspp, scanner, *};
+use std::sync::atomic::{AtomicBool, Ordering};
+use t_emulator::adapters::ppsspp::Ppsspp;
+use t_emulator::config::Config;
+use t_emulator::launcher::{self, EmuInfo};
+use t_emulator::{ini::Ini, psp, scanner, *};
 
 mod sounds;
 
-fn static_name(s: &str) -> &'static str {
-    match s {
-        "select" => "select",
-        "back" => "back",
-        _ => "tick",
-    }
+enum Ev {
+    Progress(f32),
+    Installed(Result<String, String>),
+    Latest(Option<String>),
+    VersionProbe(Option<String>),
+    GameExit,
+    FolderPicked(Option<PathBuf>),
+    Key(char),
+    ToastHide,
 }
 
-fn games_dir() -> PathBuf {
-    let mut cfg = config::Config::load();
-    if let Some(d) = cfg.games_dir.clone() {
-        return d;
+struct St {
+    cfg: Config,
+    dir: PathBuf,
+    games: Vec<scanner::Game>,
+    emu: EmuInfo,
+    installing: Arc<AtomicBool>,
+    playing: bool,
+    query: String,
+    psp_setting: String, // setting id of the open option sheet
+}
+
+fn toast(app: &App, text: &str, progress: f32, tx: &Sender<Ev>, ms: u64) {
+    app.set_toast(text.into());
+    app.set_toast_progress(progress);
+    app.set_toast_shown(true);
+    let tx = tx.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(ms));
+        let _ = tx.send(Ev::ToastHide);
+    });
+}
+
+fn model<T: Clone + 'static>(v: Vec<T>) -> ModelRc<VecModel<T>> {
+    ModelRc::new(VecModel::from(v))
+}
+
+fn refresh(app: &App, st: &St) {
+    app.set_consoles(model(launcher::console_tiles(
+        st.games.len(),
+        st.emu.installed,
+        st.emu.installing,
+    )));
+    app.set_recents(model(launcher::recent_cards(&st.cfg, &st.games)));
+    app.set_games(model(launcher::game_tiles(&st.games, &st.query)));
+    app.set_emus(model(launcher::emu_rows(&st.emu)));
+    app.set_settings(model(launcher::settings_rows(&st.cfg, &st.dir.display().to_string())));
+    app.set_attn(matches!(st.emu.state(), launcher::EmuState::Install | launcher::EmuState::Update));
+
+    let ini = Ini::load(&psp::ini_path()).unwrap_or_default();
+    let ver = st.emu.version.clone().unwrap_or_else(|| "installed".into());
+    app.set_psp_categories(model(psp::categories(
+        &st.games,
+        st.emu.installed,
+        &ver,
+        &st.dir.display().to_string(),
+        &ini,
+        st.cfg.fullscreen,
+    )));
+}
+
+fn save(st: &mut St) {
+    let _ = st.cfg.save();
+}
+
+fn start_install(st: &mut St, tx: &Sender<Ev>) {
+    if st.installing.swap(true, Ordering::SeqCst) {
+        return;
     }
-    let d = directories::UserDirs::new()
-        .map(|u| u.home_dir().join("Games").join("PSP"))
-        .unwrap_or_else(|| PathBuf::from("Games/PSP"));
-    let _ = std::fs::create_dir_all(&d);
-    cfg.games_dir = Some(d.clone());
-    let _ = cfg.save();
-    d
+    st.emu.installing = true;
+    let tx = tx.clone();
+    let flag = Arc::clone(&st.installing);
+    std::thread::spawn(move || {
+        let emu = Ppsspp::new();
+        let txp = tx.clone();
+        let r = emu.install(move |f| {
+            let _ = txp.send(Ev::Progress(f));
+        });
+        let _ = tx.send(Ev::Installed(r.map_err(|e| e.to_string())));
+        flag.store(false, Ordering::SeqCst);
+    });
+}
+
+fn pick_games_folder(tx: Sender<Ev>) {
+    std::thread::spawn(move || {
+        // zenity first, kdialog as fallback; both already on the system.
+        let out = std::process::Command::new("zenity")
+            .args(["--file-selection", "--directory", "--title=Choose your games folder"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .or_else(|| {
+                std::process::Command::new("kdialog")
+                    .args(["--getexistingdirectory", &dirs_home()])
+                    .output()
+                    .ok()
+                    .filter(|o| o.status.success())
+            });
+        let dir = out
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| PathBuf::from(s.trim()));
+        let _ = tx.send(Ev::FolderPicked(dir));
+    });
+}
+
+fn dirs_home() -> String {
+    directories::BaseDirs::new()
+        .map(|b| b.home_dir().display().to_string())
+        .unwrap_or_default()
 }
 
 fn main() -> anyhow::Result<()> {
     let app = App::new()?;
-    let dir = games_dir();
-    let games: Rc<RefCell<Vec<scanner::Game>>> = Rc::new(RefCell::new(scanner::scan(&dir)));
-    let ready = Rc::new(Cell::new(Ppsspp::new().is_installed()));
-    let installing = Arc::new(AtomicBool::new(false));
-    let playing = Rc::new(Cell::new(false));
+    let mut cfg = Config::load();
+    let dir = cfg.games_dir.clone().unwrap_or_else(|| {
+        let d = directories::UserDirs::new()
+            .map(|u| u.home_dir().join("Games").join("PSP"))
+            .unwrap_or_else(|| PathBuf::from("Games/PSP"));
+        let _ = std::fs::create_dir_all(&d);
+        d
+    });
+    cfg.games_dir = Some(dir.clone());
+    let _ = cfg.save();
 
-    app.set_consoles(ModelRc::new(VecModel::from(consoles())));
-    app.set_categories(ModelRc::new(VecModel::from(categories(&games.borrow(), ready.get()))));
+    let installed = Ppsspp::new().is_installed();
+    let version = cfg.emu_versions.get("ppsspp").cloned();
+    let st = Rc::new(RefCell::new(St {
+        cfg,
+        dir,
+        games: Vec::new(),
+        emu: EmuInfo {
+            installed,
+            installing: false,
+            progress: 0.0,
+            version,
+            latest: None,
+            check_done: false,
+            playing: false,
+        },
+        installing: Arc::new(AtomicBool::new(false)),
+        playing: false,
+        query: String::new(),
+        psp_setting: String::new(),
+    }));
+    st.borrow_mut().games = scanner::scan(&st.borrow().dir);
+
+    let (tx, rx) = channel::<Ev>();
+    let tx = Rc::new(tx);
+
+    refresh(&app, &st.borrow());
     let (c, d) = clock_strings();
     app.set_clock(c);
     app.set_date(d);
+    app.set_empty_dir(st.borrow().dir.display().to_string().into());
 
-    // ── animated background + clock ──
+    // background: rescan + update check + version probe
+    {
+        let tx = tx.clone();
+        std::thread::spawn(move || {
+            let emu = Ppsspp::new();
+            if emu.is_installed() {
+                let _ = tx.send(Ev::VersionProbe(emu.probe_version()));
+            }
+            let agent = ureq::Agent::config_builder()
+                .http_status_as_error(false)
+                .timeout_global(Some(std::time::Duration::from_secs(15)))
+                .build()
+                .into();
+            let latest = Ppsspp::latest_release(&agent).ok().map(|r| r.tag);
+            let _ = tx.send(Ev::Latest(latest));
+        });
+    }
+
+    // ── timers: clock + wave (wave only while inside a shell) ──
     let t0 = std::time::Instant::now();
     let hue = wave::hue_for_month(month());
     let weak = app.as_weak();
-    let timer = slint::Timer::default();
     let last_clock = Cell::new(0u64);
+    let frame = Cell::new(0u64);
+    let timer = slint::Timer::default();
     timer.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(50), move || {
         let Some(app) = weak.upgrade() else { return };
         let t = t0.elapsed().as_secs_f32();
-        app.set_wave(slint::Image::from_rgba8(wave::render(384, 216, t, hue, 1.0)));
+        if app.get_mode() != 0 {
+            let f = (t * 20.0) as u64;
+            if f != frame.get() {
+                frame.set(f);
+                app.set_wave(slint::Image::from_rgba8(wave::render(384, 216, t, hue, 1.0)));
+            }
+        }
         let sec = t0.elapsed().as_secs();
         if sec != last_clock.get() && sec % 5 == 0 {
             last_clock.set(sec);
@@ -63,86 +211,394 @@ fn main() -> anyhow::Result<()> {
         }
     });
 
-    app.on_sfx(|n| sounds::play(static_name(n.as_str())));
-    app.on_quit(|| {
-        let _ = slint::quit_event_loop();
-    });
-
-    // power on: only PSP is real in v0.1
+    // ── background event pump ──
     {
         let weak = app.as_weak();
-        let installing = installing.clone();
-        let ready = ready.clone();
-        app.on_power_on(move |i| {
+        let st = st.clone();
+        let txp = tx.clone();
+        let pump = slint::Timer::default();
+        pump.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(80), move || {
             let Some(app) = weak.upgrade() else { return };
-            if !consoles()[i as usize].available {
-                app.set_toast("PS3, GameCube and PS2 come in later versions".into());
-                app.set_toast_progress(-1.0);
-                app.set_toast_shown(true);
-                hide_toast_later(app.as_weak(), 2600);
-                sounds::play("back");
-                return;
-            }
-            sounds::play("select");
-            app.set_mode(1);
-            if !ready.get() && !installing.swap(true, Ordering::SeqCst) {
-                start_install(app.as_weak(), installing.clone());
+            while let Ok(ev) = rx.try_recv() {
+                let mut b = st.borrow_mut();
+                match ev {
+                    Ev::Progress(f) => {
+                        b.emu.progress = f;
+                    }
+                    Ev::Installed(Ok(tag)) => {
+                        b.emu.installing = false;
+                        b.emu.installed = true;
+                        if !tag.is_empty() {
+                            b.emu.version = Some(tag.clone());
+                            b.cfg.emu_versions.insert("ppsspp".into(), tag);
+                            let _ = b.cfg.save();
+                        }
+                        toast(&app, "PSP emulator installed", -1.0, &txp, 2200);
+                    }
+                    Ev::Installed(Err(e)) => {
+                        b.emu.installing = false;
+                        toast(&app, &format!("Install failed: {e}"), -1.0, &txp, 4000);
+                    }
+                    Ev::Latest(l) => {
+                        b.emu.check_done = true;
+                        b.emu.latest = l;
+                    }
+                    Ev::VersionProbe(v) => {
+                        if b.emu.version.is_none() {
+                            b.emu.version = v;
+                            if let Some(v) = &b.emu.version {
+                                b.cfg.emu_versions.insert("ppsspp".into(), v.clone());
+                                let _ = b.cfg.save();
+                            }
+                        }
+                    }
+                    Ev::GameExit => {
+                        b.playing = false;
+
+                        app.set_playing_title("".into());
+                    }
+                    Ev::FolderPicked(Some(d)) => {
+                        b.dir = d.clone();
+                        b.cfg.games_dir = Some(d);
+                        let _ = b.cfg.save();
+                        b.games = scanner::scan(&b.dir);
+                        app.set_empty_dir(b.dir.display().to_string().into());
+                        toast(&app, "Games folder updated", -1.0, &txp, 2000);
+                    }
+                    Ev::FolderPicked(None) => {}
+                    Ev::Key(c) => {
+                        let s: SharedString = c.to_string().into();
+                        app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed {
+                            text: s.clone(),
+                        });
+                        app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased {
+                            text: s,
+                        });
+                    }
+                    Ev::ToastHide => app.set_toast_shown(false),
+                }
+                refresh(&app, &b);
             }
         });
     }
 
-    // menu activation
+    // ── gamepad → synthetic keys ──
+    {
+        let tx = tx.clone();
+        std::thread::spawn(move || {
+            let Ok(mut g) = gilrs::Gilrs::new() else { return };
+            let map = |b: gilrs::Button| -> Option<char> {
+                use gilrs::Button::*;
+                Some(match b {
+                    DPadUp => '\u{F700}',
+                    DPadDown => '\u{F701}',
+                    DPadLeft => '\u{F702}',
+                    DPadRight => '\u{F703}',
+                    South => '\u{000a}',
+                    East => '\u{001b}',
+                    LeftTrigger => '\u{0019}',
+                    RightTrigger => '\t',
+                    _ => return None,
+                })
+            };
+            let mut repeat = std::collections::HashMap::new();
+            let mut last = std::time::Instant::now();
+            loop {
+                while let Some(e) = g.next_event() {
+                    use gilrs::EventType::*;
+                    match e.event {
+                        ButtonPressed(b, _) | ButtonRepeated(b, _) => {
+                            if let Some(c) = map(b) {
+                                let _ = tx.send(Ev::Key(c));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                // left stick → arrows at 4 Hz
+                if last.elapsed().as_millis() > 250 {
+                    last = std::time::Instant::now();
+                    if let Some(gp) = g.gamepads().next().map(|(_, p)| p) {
+                        let (x, y) = (gp.value(gilrs::Axis::LeftStickX), gp.value(gilrs::Axis::LeftStickY));
+                        let c = if x < -0.5 {
+                            Some('\u{F702}')
+                        } else if x > 0.5 {
+                            Some('\u{F703}')
+                        } else if y > 0.5 {
+                            Some('\u{F700}')
+                        } else if y < -0.5 {
+                            Some('\u{F701}')
+                        } else {
+                            None
+                        };
+                        if let Some(c) = c {
+                            if repeat.get(&c).map(|t: &std::time::Instant| t.elapsed().as_millis() > 250).unwrap_or(true) {
+                                repeat.insert(c, std::time::Instant::now());
+                                let _ = tx.send(Ev::Key(c));
+                            }
+                        } else {
+                            repeat.clear();
+                        }
+                    }
+                }
+                std::thread::sleep(std::time::Duration::from_millis(60));
+            }
+        });
+    }
+
+    {
+        let st = st.clone();
+        app.on_sfx(move |n| {
+            if st.borrow().cfg.sounds {
+                sounds::play(n.as_str());
+            }
+        });
+    }
+
+    app.on_quit(|| {
+        let _ = slint::quit_event_loop();
+    });
+
+    // clicking a top tab: jump there (Slint already focuses the bar)
     {
         let weak = app.as_weak();
-        let games = games.clone();
-        let ready = ready.clone();
-        let installing = installing.clone();
-        let playing = playing.clone();
-        let dir = dir.clone();
-        app.on_activate(move |cat, idx| {
+        app.on_pick_tab(move |i| {
             let Some(app) = weak.upgrade() else { return };
+            app.set_tab(i);
+            app.set_zone(0);
+            sounds::play("tick");
+        });
+    }
+
+    // power-on / recent resume from Home
+    {
+        let weak = app.as_weak();
+        let st = st.clone();
+        let tx = tx.clone();
+        app.on_home_pick(move |f| {
+            let Some(app) = weak.upgrade() else { return };
+            let mut b = st.borrow_mut();
+            let rec = launcher::recent_cards(&b.cfg, &b.games);
+            let f = f as usize;
+            if f < rec.len() {
+                let gi = rec[f].idx as usize;
+                launch_game(&app, &mut b, gi, &tx);
+                return;
+            }
+            let ci = f - rec.len();
+            let tiles = launcher::console_tiles(b.games.len(), b.emu.installed, b.emu.installing);
+            let Some(t) = tiles.get(ci) else { return };
+            if !t.available {
+                sounds::play("back");
+                toast(&app, "PS3, GameCube and PS2 come in later versions", -1.0, &tx, 2600);
+                return;
+            }
             sounds::play("select");
-            match (cat, idx) {
-                (1, i) => {
-                    let g = games.borrow();
-                    let Some(game) = g.get(i as usize) else { return };
-                    let emu = Ppsspp::new();
-                    if !emu.is_installed() {
-                        toast(&app, "PSP emulator is still installing…", -1.0, 2600);
-                        return;
-                    }
-                    if playing.get() {
-                        return;
-                    }
-                    match emu.launch(&game.path) {
-                        Ok(mut child) => {
-                            playing.set(true);
-                            let flag = Arc::new(AtomicBool::new(false));
-                            let f2 = flag.clone();
-                            std::thread::spawn(move || {
-                                let _ = child.wait();
-                                f2.store(true, Ordering::SeqCst);
-                            });
-                            poll_exit(flag, playing.clone());
-                        }
-                        Err(e) => toast(&app, &format!("Could not start PPSSPP: {e}"), -1.0, 4000),
-                    }
-                }
-                (0, 0) => {
-                    let _ = std::process::Command::new("xdg-open").arg(&dir).spawn();
-                }
-                (0, 1) => {
-                    *games.borrow_mut() = scanner::scan(&dir);
-                    app.set_categories(ModelRc::new(VecModel::from(categories(&games.borrow(), ready.get()))));
-                    toast(&app, &format!("Found {} games", games.borrow().len()), -1.0, 1800);
-                }
-                (0, 2) => {
-                    if !installing.swap(true, Ordering::SeqCst) {
-                        start_install(app.as_weak(), installing.clone());
-                    }
+            app.set_boot_name(t.name.clone());
+            app.set_boot(0.0);
+            app.set_mode(1);
+            if !b.emu.installed && !b.emu.installing {
+                start_install(&mut b, &tx);
+                toast(&app, "Downloading PSP emulator…", -1.0, &tx, 3000);
+            }
+        });
+    }
+
+    // library launch
+    {
+        let weak = app.as_weak();
+        let st = st.clone();
+        let tx = tx.clone();
+        app.on_lib_pick(move |gi| {
+            let Some(app) = weak.upgrade() else { return };
+            let mut b = st.borrow_mut();
+            launch_game(&app, &mut b, gi as usize, &tx);
+        });
+    }
+
+    // downloads rows
+    {
+        let weak = app.as_weak();
+        let st = st.clone();
+        let tx = tx.clone();
+        app.on_emu_act(move |i| {
+            let Some(app) = weak.upgrade() else { return };
+            let mut b = st.borrow_mut();
+            if i != 0 {
+                return; // planned rows do nothing
+            }
+            match b.emu.state() {
+                launcher::EmuState::Install | launcher::EmuState::Update => {
+                    sounds::play("select");
+                    start_install(&mut b, &tx);
+                    refresh(&app, &b);
                 }
                 _ => {}
             }
+        });
+    }
+
+    // settings rows
+    {
+        let weak = app.as_weak();
+        let st = st.clone();
+        let tx = tx.clone();
+        app.on_set_act(move |i| {
+            let Some(app) = weak.upgrade() else { return };
+            let mut b = st.borrow_mut();
+            let rows = launcher::settings_rows(&b.cfg, &b.dir.display().to_string());
+            let Some(row) = rows.get(i as usize) else { return };
+            match row.id.as_str() {
+                "folder" => pick_games_folder(tx.clone()),
+                "rescan" => {
+                    b.games = scanner::scan(&b.dir);
+                    toast(&app, &format!("Found {} games", b.games.len()), -1.0, &tx, 1800);
+                }
+                "sounds" => {
+                    b.cfg.sounds = !b.cfg.sounds;
+                    save(&mut b);
+                }
+                "fullscreen" => {
+                    b.cfg.fullscreen = !b.cfg.fullscreen;
+                    save(&mut b);
+                }
+                "update-check" => {
+                    b.cfg.update_check = !b.cfg.update_check;
+                    save(&mut b);
+                }
+                _ => {}
+            }
+            refresh(&app, &b);
+        });
+    }
+
+    app.on_open_folder({
+        let st = st.clone();
+        move || {
+            let _ = std::process::Command::new("xdg-open").arg(&st.borrow().dir).spawn();
+        }
+    });
+
+    // search typing
+    {
+        let weak = app.as_weak();
+        let st = st.clone();
+        app.on_search_key(move |k| {
+            let Some(app) = weak.upgrade() else { return true };
+            let mut b = st.borrow_mut();
+            let s = k.as_str();
+            if s == "clear" {
+                b.query.clear();
+            } else if s == "\u{8}" {
+                b.query.pop();
+            } else if s.chars().count() == 1 && s.chars().next().is_some_and(|c| !c.is_control()) {
+                b.query.push_str(s);
+            } else {
+                return true; // consume arrows/Tab while searching
+            }
+            app.set_query(b.query.clone().into());
+            app.set_lib_idx(0);
+            app.set_lib_scroll(0.0);
+            refresh(&app, &b);
+            true
+        });
+    }
+
+    // PSP XMB activation
+    {
+        let weak = app.as_weak();
+        let st = st.clone();
+        let tx = tx.clone();
+        app.on_psp_activate(move |cat, item| {
+            let Some(app) = weak.upgrade() else { return };
+            let mut b = st.borrow_mut();
+            let ini = Ini::load(&psp::ini_path()).unwrap_or_default();
+            let ver = b.emu.version.clone().unwrap_or_else(|| "installed".into());
+            let cats = psp::categories(&b.games, b.emu.installed, &ver, &b.dir.display().to_string(), &ini, b.cfg.fullscreen);
+            let Some(id) = cats
+                .get(cat as usize)
+                .and_then(|c| c.items.row_data(item as usize))
+                .map(|it| it.id.to_string())
+            else {
+                return;
+            };
+            match id.as_str() {
+                "none" => toast(&app, "Put .iso / .cso / .pbp files in your PSP folder", -1.0, &tx, 2600),
+                "emu" => {
+                    if !b.emu.installing {
+                        sounds::play("select");
+                        start_install(&mut b, &tx);
+                        refresh(&app, &b);
+                    }
+                }
+                "folder" => {
+                    let _ = std::process::Command::new("xdg-open").arg(&b.dir).spawn();
+                }
+                "rescan" => {
+                    b.games = scanner::scan(&b.dir);
+                    toast(&app, &format!("Found {} games", b.games.len()), -1.0, &tx, 1800);
+                    refresh(&app, &b);
+                }
+                "exit" => {
+                    app.set_mode(0);
+                    sounds::play("back");
+                }
+                _ => {
+                    if let Some(rest) = id.strip_prefix('g') {
+                        if let Ok(gi) = rest.parse::<usize>() {
+                            launch_game(&app, &mut b, gi, &tx);
+                        }
+                        return;
+                    }
+                    // a settings row → open the option sheet
+                    if let Some(s) = psp::SETTINGS.iter().find(|s| s.id == id) {
+                        let lv = if matches!(s.kind, psp::Kind::Launcher) {
+                            Some(if b.cfg.fullscreen { "True" } else { "False" })
+                        } else {
+                            None
+                        };
+                        let cur = psp::current(&id, &ini, lv);
+                        b.psp_setting = id.clone();
+                        app.set_psp_opts(model(s.opts.iter().map(|o| SharedString::from(o.label)).collect()));
+                        app.set_psp_sheet_title(s.label.into());
+                        app.set_psp_sheet_cur(if cur == usize::MAX { -1 } else { cur as i32 });
+                        app.set_psp_sheet_sel(if cur == usize::MAX { 0 } else { cur as i32 });
+                        app.set_psp_sheet(true);
+                        sounds::play("select");
+                    }
+                }
+            }
+        });
+    }
+
+    // option sheet choice
+    {
+        let weak = app.as_weak();
+        let st = st.clone();
+        let tx = tx.clone();
+        app.on_psp_choice(move |opt| {
+            let Some(app) = weak.upgrade() else { return };
+            let mut b = st.borrow_mut();
+            let id = b.psp_setting.clone();
+            if id.is_empty() {
+                app.set_psp_sheet(false);
+                return;
+            }
+            if id == "fullscreen" {
+                b.cfg.fullscreen = opt == 1;
+                let _ = b.cfg.save();
+            } else {
+                let path = psp::ini_path();
+                let mut ini = Ini::load(&path).unwrap_or_default();
+                psp::apply(&id, opt as usize, &mut ini);
+                match ini.save(&path) {
+                    Ok(()) => {}
+                    Err(e) => toast(&app, &format!("Could not write ppsspp.ini: {e}"), -1.0, &tx, 3200),
+                }
+            }
+            app.set_psp_sheet(false);
+            sounds::play("select");
+            refresh(&app, &b);
         });
     }
 
@@ -150,71 +606,34 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn toast(app: &App, text: &str, progress: f32, ms: u64) {
-    app.set_toast(text.into());
-    app.set_toast_progress(progress);
-    app.set_toast_shown(true);
-    if ms > 0 {
-        hide_toast_later(app.as_weak(), ms);
-    }
-}
-
-fn hide_toast_later(weak: slint::Weak<App>, ms: u64) {
-    slint::Timer::single_shot(std::time::Duration::from_millis(ms), move || {
-        if let Some(app) = weak.upgrade() {
-            app.set_toast_shown(false);
-        }
-    });
-}
-
-fn poll_exit(flag: Arc<AtomicBool>, playing: Rc<Cell<bool>>) {
-    slint::Timer::single_shot(std::time::Duration::from_millis(400), move || {
-        if flag.load(Ordering::SeqCst) {
-            playing.set(false);
+fn launch_game(app: &App, st: &mut St, gi: usize, tx: &Sender<Ev>) {
+    let emu = Ppsspp::new();
+    let Some(g) = st.games.get(gi).cloned() else { return };
+    if !emu.is_installed() {
+        if !st.emu.installing {
+            toast(app, "PSP emulator is not installed — see the Downloads tab", -1.0, tx, 2800);
         } else {
-            poll_exit(flag, playing);
+            toast(app, "PSP emulator is still installing…", -1.0, tx, 2200);
         }
-    });
-}
-
-fn start_install(weak: slint::Weak<App>, installing: Arc<AtomicBool>) {
-    if let Some(app) = weak.upgrade() {
-        toast(&app, "Downloading PSP emulator", 0.0, 0);
+        return;
     }
-    let (tx, rx) = std::sync::mpsc::channel::<Result<f32, String>>();
-    std::thread::spawn(move || {
-        let res = Ppsspp::new().install(|p| {
-            let _ = tx.send(Ok(p));
-        });
-        let _ = tx.send(match res {
-            Ok(()) => Ok(2.0),
-            Err(e) => Err(e.to_string()),
-        });
-    });
-    pump_install(weak, rx, installing);
-}
+    if st.playing {
+        return;
+    }
+    match emu.launch(&g.path, st.cfg.fullscreen) {
+        Ok(mut child) => {
+            st.playing = true;
 
-fn pump_install(weak: slint::Weak<App>, rx: std::sync::mpsc::Receiver<Result<f32, String>>, installing: Arc<AtomicBool>) {
-    slint::Timer::single_shot(std::time::Duration::from_millis(120), move || {
-        let Some(app) = weak.upgrade() else { return };
-        let mut done = false;
-        while let Ok(msg) = rx.try_recv() {
-            match msg {
-                Ok(p) if p >= 2.0 => {
-                    toast(&app, "PSP emulator ready", -1.0, 2200);
-                    done = true;
-                }
-                Ok(p) => app.set_toast_progress(p),
-                Err(e) => {
-                    toast(&app, &format!("Install failed: {e}"), -1.0, 5000);
-                    done = true;
-                }
-            }
+            app.set_playing_title(g.title.clone().into());
+            st.cfg.played(g.path.clone());
+            let _ = st.cfg.save();
+            sounds::play("select");
+            let tx = tx.clone();
+            std::thread::spawn(move || {
+                let _ = child.wait();
+                let _ = tx.send(Ev::GameExit);
+            });
         }
-        if done {
-            installing.store(false, Ordering::SeqCst);
-        } else {
-            pump_install(app.as_weak(), rx, installing);
-        }
-    });
+        Err(e) => toast(app, &format!("Could not start PPSSPP: {e}"), -1.0, tx, 4000),
+    }
 }

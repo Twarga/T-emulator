@@ -4,12 +4,12 @@ import { GameTile } from "../types.slint";
 
 export component Library inherits Rectangle {
     in property <[GameTile]> games;
-    in-out property <int> focus;
+    in property <int> focus;
     in property <string> query;
     in property <bool> searching;
     in property <string> empty-dir;
     in-out property <int> cols;
-    in-out property <length> scroll;
+    in property <length> scroll;
     in property <length> u: 1px;
     callback pick(int);
     callback open-folder();

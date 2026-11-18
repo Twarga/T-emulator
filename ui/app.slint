@@ -1,135 +1,315 @@
+import "../assets/fonts/IBMPlexSans-Light.ttf";
+import "../assets/fonts/IBMPlexSans-Regular.ttf";
+import "../assets/fonts/IBMPlexSans-Medium.ttf";
+import "../assets/fonts/IBMPlexSans-SemiBold.ttf";
+import "../assets/fonts/IBMPlexMono-Regular.ttf";
 import "../assets/fonts/Inter-Light.ttf";
 import "../assets/fonts/Inter-Regular.ttf";
 import "../assets/fonts/Inter-Medium.ttf";
 import "../assets/fonts/Inter-SemiBold.ttf";
-import "../assets/fonts/Inter-Bold.ttf";
 
+import { Lt } from "launcher/theme.slint";
 import { Pal } from "tokens.slint";
-import { ConsoleInfo, XmbCategory } from "types.slint";
-import { Launcher } from "launcher.slint";
-import { Xmb } from "xmb.slint";
+import { ConsoleInfo, RecentCard, GameTile, EmuRow, SetRow, XmbCategory } from "types.slint";
+import { Launcher } from "launcher/launcher.slint";
+import { Psp } from "psp.slint";
 import { Toast } from "widgets.slint";
 
-export { ConsoleInfo, XmbCategory, XmbItem } from "types.slint";
+export { ConsoleInfo, RecentCard, GameTile, EmuRow, SetRow, XmbCategory, XmbItem } from "types.slint";
 
 export component App inherits Window {
     title: "T-Emulator";
-    default-font-family: "Inter";
-    background: Pal.ink;
+    default-font-family: "IBM Plex Sans";
+    background: Lt.bg;
     preferred-width: 1280px;
     preferred-height: 800px;
-    min-width: 760px;
-    min-height: 480px;
+    min-width: 960px;
+    min-height: 600px;
 
+    // ── data (Rust-owned) ──
     in property <[ConsoleInfo]> consoles;
-    in property <[XmbCategory]> categories;
+    in property <[RecentCard]> recents;
+    in property <[GameTile]> games;
+    in property <[EmuRow]> emus;
+    in property <[SetRow]> settings;
+    in property <[XmbCategory]> psp-categories;
+    in property <[string]> psp-opts;
     in property <image> wave;
     in property <string> clock;
     in property <string> date;
     in property <string> toast;
     in property <float> toast-progress: -1;
     in property <bool> toast-shown: false;
+    in property <string> empty-dir;
+    in property <string> query;
+    in property <bool> attn;
+    in property <string> playing-title;
+    in property <string> boot-name;
 
-    // 0 launcher, 1 power-on animation, 2 console menu
-    in-out property <int> mode: 0;
-    in-out property <int> console-idx: 0;
-    in-out property <int> cat-idx: 1;
-    in-out property <int> item-idx: 0;
+    // ── navigation state ──
+    in-out property <int> mode: 0;        // 0 launcher, 1 boot, 2 shell
+    in-out property <int> tab: 0;         // 0 home 1 library 2 downloads 3 settings
+    in-out property <int> zone: 0;        // 0 tabs, 1 content, 2 search
+    in-out property <int> home-focus: 0;  // 0..r-1 recents, r..r+3 consoles
+    in-out property <int> lib-idx: 0;
+    in-out property <int> dl-idx: 0;
+    in-out property <int> set-idx: 0;
+    in-out property <int> lib-cols: 4;
+    in-out property <length> lib-scroll: 0;
+    in-out property <int> psp-cat: 1;
+    in-out property <int> psp-item: 0;
+    in-out property <bool> psp-sheet: false;
+    in-out property <int> psp-sheet-sel: 0;
+    in property <int> psp-sheet-cur: 0;
+    in property <string> psp-sheet-title;
     in-out property <float> boot: 0;
+    property <int> home-con: 0;
 
-    callback power-on(int);
-    callback activate(int, int);
-    callback quit();
     callback sfx(string);
+    callback quit();
+    callback pick-tab(int);
+    callback home-pick(int);
+    callback lib-pick(int);
+    callback emu-act(int);
+    callback set-act(int);
+    callback open-folder();
+    callback search-key(string) -> bool;
+    callback psp-activate(int, int);
+    callback psp-choice(int);
 
     property <length> u: Math.min(root.width / 1280px, root.height / 800px) * 1px;
+    property <int> rcnt: root.recents.length;
+    property <int> ncon: root.consoles.length;
+    property <length> lib-vh: root.height - 216 * root.u;
 
-    function move(dx: int, dy: int) {
-        if (root.mode == 0 && dx != 0) {
-            let n = Math.max(0, Math.min(root.consoles.length - 1, root.console-idx + dx));
-            if (n != root.console-idx) {
-                root.console-idx = n;
-                root.sfx("tick");
-            }
-        } else if (root.mode == 2) {
-            if (dx != 0) {
-                let c = Math.max(0, Math.min(root.categories.length - 1, root.cat-idx + dx));
-                if (c != root.cat-idx) {
-                    root.cat-idx = c;
-                    root.item-idx = 0;
-                    root.sfx("tick");
-                }
-            } else if (dy != 0) {
-                let last = root.categories[root.cat-idx].items.length - 1;
-                let n = Math.max(0, Math.min(last, root.item-idx + dy));
-                if (n != root.item-idx) {
-                    root.item-idx = n;
-                    root.sfx("tick");
-                }
-            }
+    function to-tab(t: int) {
+        root.tab = Math.max(0, Math.min(3, t));
+        root.zone = 0;
+    }
+    function keep-visible() {
+        let row = Math.floor(root.lib-idx / Math.max(1, root.lib-cols));
+        let top = row * 150 * root.u;
+        if (top < root.lib-scroll) { root.lib-scroll = top; }
+        if (top + 140 * root.u > root.lib-scroll + root.lib-vh) {
+            root.lib-scroll = top + 140 * root.u - root.lib-vh;
         }
+        root.lib-scroll = Math.max(0, root.lib-scroll);
     }
 
-    function confirm() {
-        if (root.mode == 0) {
-            root.boot = 0;
-            root.power-on(root.console-idx);
-        } else if (root.mode == 1) {
-            root.boot = 1;
-        } else {
-            root.activate(root.cat-idx, root.item-idx);
+    function nav(k: string) -> bool {
+        // ── boot veil ──
+        if (root.mode == 1) {
+            if (k == Key.Return || k == " ") { root.boot = 1; return true; }
+            if (k == Key.Escape || k == Key.Backspace) { root.mode = 0; return true; }
+            return false;
         }
-    }
-
-    function back() {
+        // ── PSP shell ──
         if (root.mode == 2) {
-            root.mode = 0;
-            root.sfx("back");
-        } else if (root.mode == 0) {
-            root.quit();
-        }
-    }
-
-    Timer {
-        running: root.mode == 1;
-        interval: 16ms;
-        triggered => {
-            root.boot += 0.0105;
-            if (root.boot >= 1) {
-                root.mode = 2;
+            if (root.psp-sheet) {
+                if (k == Key.UpArrow) { root.psp-sheet-sel = Math.max(0, root.psp-sheet-sel - 1); root.sfx("tick"); return true; }
+                if (k == Key.DownArrow) { root.psp-sheet-sel = Math.min(root.psp-opts.length - 1, root.psp-sheet-sel + 1); root.sfx("tick"); return true; }
+                if (k == Key.Return || k == " ") { root.psp-choice(root.psp-sheet-sel); return true; }
+                if (k == Key.Escape || k == Key.Backspace) { root.psp-sheet = false; root.sfx("back"); return true; }
+                return true;
             }
+            if (k == Key.LeftArrow || k == Key.RightArrow) {
+                let d = k == Key.LeftArrow ? -1 : 1;
+                let c = Math.max(0, Math.min(root.psp-categories.length - 1, root.psp-cat + d));
+                if (c != root.psp-cat) { root.psp-cat = c; root.psp-item = 0; root.sfx("tick"); }
+                return true;
+            }
+            if (k == Key.UpArrow || k == Key.DownArrow) {
+                let d = k == Key.UpArrow ? -1 : 1;
+                let last = root.psp-categories[root.psp-cat].items.length - 1;
+                let n = Math.max(0, Math.min(last, root.psp-item + d));
+                if (n != root.psp-item) { root.psp-item = n; root.sfx("tick"); }
+                return true;
+            }
+            if (k == Key.Return || k == " ") { root.psp-activate(root.psp-cat, root.psp-item); return true; }
+            if (k == Key.Escape || k == Key.Backspace) { root.mode = 0; root.sfx("back"); return true; }
+            return false;
+        }
+
+        // ── launcher: search mode ──
+        if (root.zone == 2) {
+            if (k == Key.Escape) { root.zone = 1; return root.search-key("clear"); }
+            if (k == Key.Return || k == Key.DownArrow) { root.zone = 1; return true; }
+            return root.search-key(k);
+        }
+
+        // ── launcher: tabs row ──
+        if (k == "\t" || k == Key.Backtab) {
+            let d = k == "\t" ? 1 : -1;
+            if (root.zone == 0) {
+                root.to-tab(Math.mod(root.tab + d + 4, 4));
+            } else {
+                root.zone = 0;
+            }
+            root.sfx("tick");
+            return true;
+        }
+        if (k == Key.Escape || k == Key.Backspace) {
+            if (root.zone == 1) { root.zone = 0; root.sfx("back"); }
+            else if (root.zone == 0) { root.quit(); }
+            return true;
+        }
+        if (root.zone == 0) {
+            if (k == Key.LeftArrow) { root.to-tab(root.tab - 1); root.sfx("tick"); return true; }
+            if (k == Key.RightArrow) { root.to-tab(root.tab + 1); root.sfx("tick"); return true; }
+            if (k == Key.DownArrow || k == Key.Return) {
+                root.zone = 1;
+                root.sfx("select");
+                return true;
+            }
+            return true;
+        }
+
+        // ── launcher: content ──
+        if (root.tab == 0) {
+            let r = root.rcnt;
+            let f = root.home-focus;
+            if (k == Key.LeftArrow || k == Key.RightArrow) {
+                let d = k == Key.LeftArrow ? -1 : 1;
+                if (f < r) {
+                    root.home-focus = Math.max(0, Math.min(r - 1, f + d));
+                } else {
+                    root.home-con = Math.max(0, Math.min(root.ncon - 1, f - r + d));
+                    root.home-focus = r + root.home-con;
+                }
+                root.sfx("tick");
+                return true;
+            }
+            if (k == Key.UpArrow) {
+                if (f < r) { root.zone = 0; }
+                else if (r > 0) { root.home-focus = Math.min(root.home-con, r - 1); }
+                else { root.zone = 0; }
+                root.sfx("tick");
+                return true;
+            }
+            if (k == Key.DownArrow) {
+                if (f < r) {
+                    root.home-con = Math.min(f, root.ncon - 1);
+                    root.home-focus = r + root.home-con;
+                    root.sfx("tick");
+                }
+                return true;
+            }
+            if (k == Key.Return || k == " ") { root.home-pick(root.home-focus); return true; }
+            return false;
+        }
+        if (root.tab == 1) {
+            if (k == "/") { root.zone = 2; root.sfx("tick"); return true; }
+            if (k == Key.LeftArrow) { root.lib-idx = Math.max(0, root.lib-idx - 1); root.keep-visible(); root.sfx("tick"); return true; }
+            if (k == Key.RightArrow) { root.lib-idx = Math.min(root.games.length - 1, root.lib-idx + 1); root.keep-visible(); root.sfx("tick"); return true; }
+            if (k == Key.UpArrow) {
+                if (root.lib-idx - root.lib-cols >= 0) {
+                    root.lib-idx -= root.lib-cols;
+                    root.keep-visible();
+                    root.sfx("tick");
+                } else {
+                    root.zone = 0;
+                    root.sfx("tick");
+                }
+                return true;
+            }
+            if (k == Key.DownArrow) {
+                if (root.lib-idx + root.lib-cols < root.games.length) {
+                    root.lib-idx += root.lib-cols;
+                    root.keep-visible();
+                    root.sfx("tick");
+                }
+                return true;
+            }
+            if (k == Key.Return || k == " ") {
+                if (root.games.length > 0) { root.lib-pick(root.games[root.lib-idx].idx); }
+                return true;
+            }
+            return false;
+        }
+        if (root.tab == 2) {
+            if (k == Key.UpArrow) {
+                if (root.dl-idx > 0) { root.dl-idx -= 1; root.sfx("tick"); } else { root.zone = 0; root.sfx("tick"); }
+                return true;
+            }
+            if (k == Key.DownArrow) { root.dl-idx = Math.min(root.emus.length - 1, root.dl-idx + 1); root.sfx("tick"); return true; }
+            if (k == Key.Return || k == " ") { root.emu-act(root.dl-idx); return true; }
+            return false;
+        }
+        if (root.tab == 3) {
+            if (k == Key.UpArrow) {
+                if (root.set-idx > 0) { root.set-idx -= 1; root.sfx("tick"); } else { root.zone = 0; root.sfx("tick"); }
+                return true;
+            }
+            if (k == Key.DownArrow) { root.set-idx = Math.min(root.settings.length - 1, root.set-idx + 1); root.sfx("tick"); return true; }
+            if (k == Key.Return || k == " ") { root.set-act(root.set-idx); return true; }
+            return false;
+        }
+        return false;
+    }
+
+    FocusScope {
+        init => { self.focus(); }
+        key-pressed(ev) => {
+            if (root.playing-title != "") { return accept; }
+            if (root.nav(ev.text)) { return accept; }
+            return reject;
         }
     }
 
-    // animated background
-    Image {
+    // ── launcher ──
+    if root.mode == 0: Launcher {
+        width: parent.width;
+        height: parent.height;
+        consoles: root.consoles;
+        recents: root.recents;
+        games: root.games;
+        emus: root.emus;
+        settings: root.settings;
+        clock: root.clock;
+        date: root.date;
+        attn: root.attn;
+        query: root.query;
+        searching: root.zone == 2;
+        empty-dir: root.empty-dir;
+        u: root.u;
+        tab: root.tab;
+        zone: root.zone;
+        home-focus: root.home-focus;
+        lib-idx: root.lib-idx;
+        dl-idx: root.dl-idx;
+        set-idx: root.set-idx;
+        lib-cols <=> root.lib-cols;
+        lib-scroll: root.lib-scroll;
+        pick-tab(i) => { root.pick-tab(i); }
+        home-pick(i) => { root.home-pick(i); }
+        lib-pick(i) => { root.lib-pick(i); }
+        emu-act(i) => { root.emu-act(i); }
+        set-act(i) => { root.set-act(i); }
+        open-folder() => { root.open-folder(); }
+    }
+    // ── shell background + PSP ──
+    if root.mode >= 1: Image {
         source: root.wave;
         width: parent.width;
         height: parent.height;
         image-fit: fill;
         image-rendering: smooth;
     }
-
-    if root.mode == 0: Launcher {
+    if root.mode >= 1: Psp {
         width: parent.width;
         height: parent.height;
-        consoles: root.consoles;
-        idx: root.console-idx;
+        categories: root.psp-categories;
+        cat: root.psp-cat;
+        item: root.psp-item;
+        console-label: root.boot-name;
         clock: root.clock;
         date: root.date;
         u: root.u;
-    }
-
-    if root.mode >= 1: Xmb {
-        width: parent.width;
-        height: parent.height;
-        categories: root.categories;
-        cat: root.cat-idx;
-        item: root.item-idx;
-        console-label: root.consoles[root.console-idx].name;
-        clock: root.clock;
-        date: root.date;
-        u: root.u;
+        sheet: root.psp-sheet;
+        sheet-title: root.psp-sheet-title;
+        sheet-opts: root.psp-opts;
+        sheet-cur: root.psp-sheet-cur;
+        sheet-sel <=> root.psp-sheet-sel;
         opacity: root.mode == 2 ? 1 : Math.max(0, Math.min(1, (root.boot - 0.6) / 0.4));
     }
 
@@ -140,7 +320,8 @@ export component App inherits Window {
         Text {
             width: parent.width;
             height: parent.height;
-            text: root.consoles[root.console-idx].name;
+            text: root.boot-name;
+            font-family: "Inter";
             font-size: 64 * root.u;
             font-weight: 300;
             letter-spacing: 14 * root.u;
@@ -148,6 +329,48 @@ export component App inherits Window {
             vertical-alignment: center;
             color: #ffffff;
             opacity: root.boot < 0.2 ? root.boot / 0.2 : (root.boot < 0.5 ? 1 : Math.max(0, 1 - (root.boot - 0.5) / 0.15));
+        }
+    }
+    Timer {
+        running: root.mode == 1;
+        interval: 16ms;
+        triggered => {
+            root.boot += 0.0105;
+            if (root.boot >= 1) { root.mode = 2; }
+        }
+    }
+
+    // ── playing overlay (game owns the screen; eat keys) ──
+    if root.playing-title != "": Rectangle {
+        x: 0; y: 0;
+        width: parent.width; height: parent.height;
+        background: #00000088;
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 380 * root.u;
+            height: 120 * root.u;
+            border-radius: 12 * root.u;
+            background: #0a0d18ee;
+            border-width: 1px;
+            border-color: #ffffff30;
+            Text {
+                y: 22 * root.u;
+                width: parent.width;
+                text: root.playing-title;
+                font-size: 20 * root.u;
+                font-weight: 500;
+                horizontal-alignment: center;
+                color: #f5f7ff;
+            }
+            Text {
+                y: 62 * root.u;
+                width: parent.width;
+                text: "Playing — close the emulator to return";
+                font-size: 14 * root.u;
+                horizontal-alignment: center;
+                color: #f5f7ffb4;
+            }
         }
     }
 
@@ -158,18 +381,5 @@ export component App inherits Window {
         text: root.toast;
         progress: root.toast-progress;
         shown: root.toast-shown;
-    }
-
-    FocusScope {
-        init => { self.focus(); }
-        key-pressed(ev) => {
-            if (ev.text == Key.LeftArrow) { root.move(-1, 0); return accept; }
-            if (ev.text == Key.RightArrow) { root.move(1, 0); return accept; }
-            if (ev.text == Key.UpArrow) { root.move(0, -1); return accept; }
-            if (ev.text == Key.DownArrow) { root.move(0, 1); return accept; }
-            if (ev.text == Key.Return || ev.text == " ") { root.confirm(); return accept; }
-            if (ev.text == Key.Escape || ev.text == Key.Backspace) { root.back(); return accept; }
-            return reject;
-        }
     }
 }

@@ -33,5 +33,7 @@ export component BootSplash inherits Rectangle {
 
     // skip on any input
     TouchArea { clicked => { root.finished(); } }
-    Keys { on-key-pressed: (ev) => { root.finished(); accept; } }
+    fs := FocusScope {
+        key-pressed(ev) => { root.finished(); accept }
+    }
 }

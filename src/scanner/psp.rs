@@ -12,7 +12,7 @@ pub fn scan(dir: &Path) -> Vec<Game> {
         if matches!(ex.as_str(), "iso" | "cso" | "pbp") {
             let title = p.file_stem().and_then(|s| s.to_str()).unwrap_or("?")
                 .replace(['_', '-'], " ").trim().to_string();
-            let size = e.metadata().map(|m| human(m.len())).unwrap_or_else(|| "?".into());
+            let size = e.metadata().map(|m| human(m.len())).unwrap_or_else(|_| "?".into());
             out.push(Game { title, path: p, size });
         }
     }

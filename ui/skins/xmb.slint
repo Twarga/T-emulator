@@ -1,7 +1,6 @@
 import { Tokens } from "../tokens.slint";
 import { WaveBg } from "../components/wavebg.slint";
 import { InfoPanel } from "../components/infopanel.slint";
-import { BootSplash } from "../components/bootsplash.slint";
 
 export struct GameModel {
     title: string,
@@ -16,6 +15,7 @@ export component Xmb inherits Rectangle {
     callback exit_console();
     in-out property <int> focused-idx: 0;
     in property <float> wave-t: 0;
+    in property <string> clock: "00:00";
 
     background: black;
 
@@ -23,7 +23,7 @@ export component Xmb inherits Rectangle {
 
     // clock
     Text {
-        text: @tr("{}:{}", "HH", "MM"); // replaced live from Rust via callback — v0.1 static
+        text: root.clock;
         color: Tokens.text; font-size: Tokens.font-clock;
         x: parent.width - 140px; y: 28px;
     }
@@ -71,8 +71,8 @@ export component Xmb inherits Rectangle {
         last-played: root.games[Math.min(root.focused-idx, root.games.length - 1)].last_played;
     }
 
-    Keys {
-        on-key-pressed: (ev) => {
+    fs := FocusScope {
+        key-pressed(ev) => {
             if (ev.text == Key.DownArrow) {
                 if (root.focused-idx < root.games.length - 1) { root.focused-idx += 1; } accept
             } else if (ev.text == Key.UpArrow) {

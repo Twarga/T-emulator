@@ -13,11 +13,10 @@ export component TileCard inherits Rectangle {
     background: enabled ? Tokens.surface : Tokens.surface.darker(30%);
     border-width: focused ? 2px : 1px;
     border-color: focused ? accent : Tokens.border;
-    scale: focused ? 1.0 : 0.85;
-    opacity: enabled ? 1.0 : 0.45;
+    opacity: enabled ? (focused ? 1.0 : 0.72) : 0.45;
 
-    animate scale { duration: Tokens.t-med; easing: ease-out-cubic; }
     animate border-color { duration: Tokens.t-fast; }
+    animate opacity { duration: Tokens.t-med; }
 
     VerticalLayout {
         alignment: center; spacing: 6px; padding: 20px;

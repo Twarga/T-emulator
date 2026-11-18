@@ -15,9 +15,8 @@ export component WaveBg inherits Rectangle {
         stroke-width: 0.4px;
         fill: transparent;
         opacity: 0.55;
-        MoveTo { x: -5; y: 55 + 6 * Math.sin(t * 40); }
-        LineTo { x: 105; y: 55 - 6 * Math.sin(t * 40 + 90); }
-        // NOTE: this is the placeholder line — Phase 2 swaps for true ribbon shape
+        MoveTo { x: -5; y: 55 + 6 * Math.sin(t * 40 * 1deg); }
+        LineTo { x: 105; y: 55 - 6 * Math.sin((t * 40 + 90) * 1deg); }
     }
 
     // Ribbon 2 — offset, dimmer
@@ -27,8 +26,8 @@ export component WaveBg inherits Rectangle {
         stroke-width: 0.25px;
         fill: transparent;
         opacity: 0.3;
-        MoveTo { x: -5; y: 62 + 8 * Math.sin(t * 30 + 120); }
-        LineTo { x: 105; y: 62 - 8 * Math.sin(t * 30 + 30); }
+        MoveTo { x: -5; y: 62 + 8 * Math.sin((t * 30 + 120) * 1deg); }
+        LineTo { x: 105; y: 62 - 8 * Math.sin((t * 30 + 30) * 1deg); }
     }
 
     // Ribbon 3 — low, faint
@@ -38,7 +37,7 @@ export component WaveBg inherits Rectangle {
         stroke-width: 0.2px;
         fill: transparent;
         opacity: 0.18;
-        MoveTo { x: -5; y: 70 + 10 * Math.sin(t * 25 + 200); }
-        LineTo { x: 105; y: 70 - 10 * Math.sin(t * 25 + 10); }
+        MoveTo { x: -5; y: 70 + 10 * Math.sin((t * 25 + 200) * 1deg); }
+        LineTo { x: 105; y: 70 - 10 * Math.sin((t * 25 + 10) * 1deg); }
     }
 }

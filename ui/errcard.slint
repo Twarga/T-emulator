@@ -1,0 +1,71 @@
+import { Lt } from "launcher/theme.slint";
+import { Txt } from "launcher/widgets.slint";
+
+// Modal error card — blocks input, offers 1-3 actions.
+// Title = what failed, msg = what to do about it.
+export component ErrCard inherits Rectangle {
+    in property <string> title;
+    in property <string> msg;
+    in property <[string]> opts;
+    in property <int> sel;
+    in property <length> u: 1px;
+    callback pick(int);
+    callback cancel();
+
+    width: parent.width;
+    height: parent.height;
+    background: #000000b0;
+    TouchArea { clicked => { root.cancel(); } }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 460 * root.u;
+        height: 190 * root.u + (root.opts.length > 0 ? 0 : -52 * root.u);
+        border-radius: Lt.r-lg;
+        background: Lt.surface;
+        border-width: 1px;
+        border-color: Lt.line;
+
+        Txt {
+            x: 32 * root.u;
+            y: 26 * root.u;
+            text: root.title;
+            font-size: 20 * root.u;
+            font-weight: 600;
+            color: Lt.text;
+        }
+        Txt {
+            x: 32 * root.u;
+            y: 62 * root.u;
+            width: parent.width - 64 * root.u;
+            text: root.msg;
+            font-size: 14 * root.u;
+            color: Lt.dim;
+            wrap: word-wrap;
+            max-height: 66 * root.u;
+            overflow: elide;
+        }
+        // actions row, right-aligned
+        for o[i] in root.opts: Rectangle {
+            // right-align the row: first opt lands leftmost
+            x: parent.width - 32 * root.u - (root.opts.length - i) * 140 * root.u;
+            y: parent.height - 62 * root.u;
+            width: 128 * root.u;
+            height: 40 * root.u;
+            border-radius: 20 * root.u;
+            background: i == root.sel ? Lt.accent : Lt.surface2;
+            border-width: 1px;
+            border-color: i == root.sel ? Lt.accent : Lt.line;
+            Txt {
+                text: o;
+                font-size: 13 * root.u;
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: i == root.sel ? #1a0f08 : Lt.dim;
+            }
+            TouchArea { clicked => { root.pick(i); } }
+        }
+    }
+}

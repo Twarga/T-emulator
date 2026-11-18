@@ -11,6 +11,34 @@ use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
+#[derive(Clone)]
+pub struct ErrCardData {
+    pub title: String,
+    pub msg: String,
+    pub opts: Vec<String>,
+    pub acts: Vec<ErrAct>,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum ErrAct {
+    Rescan,
+    Downloads,
+    SwitchGl,
+    LaunchAnyway,
+    Dismiss,
+}
+
+impl ErrCardData {
+    pub fn new(title: &str, msg: &str, acts: &[(ErrAct, &str)]) -> Self {
+        Self {
+            title: title.into(),
+            msg: msg.into(),
+            opts: acts.iter().map(|(_, l)| l.to_string()).collect(),
+            acts: acts.iter().map(|(a, _)| *a).collect(),
+        }
+    }
+}
+
 pub enum Ev {
     Progress(f32),
     Installed(Result<String, String>),
@@ -36,6 +64,8 @@ pub struct St {
     pub psp_setting: String,
     /// currently connected gamepad name, if any
     pub pad_name: Option<String>,
+    /// modal error card (title, message, option labels, action ids)
+    pub err: Option<ErrCardData>,
 }
 
 pub fn model<T: Clone + 'static>(v: Vec<T>) -> ModelRc<T> {
@@ -64,6 +94,13 @@ pub fn refresh(app: &App, st: &St) {
     app.set_games(model(launcher::game_tiles(&st.games, &st.query)));
     app.set_emus(model(launcher::emu_rows(&st.emu)));
     app.set_settings(model(launcher::settings_rows(&st.cfg, &st.dir.display().to_string(), st.pad_name.as_deref())));
+    let (et, em, eo) = match &st.err {
+        Some(e) => (e.title.clone(), e.msg.clone(), e.opts.clone()),
+        None => (String::new(), String::new(), Vec::new()),
+    };
+    app.set_err_title(et.into());
+    app.set_err_msg(em.into());
+    app.set_err_opts(model(eo));
     app.set_attn(matches!(st.emu.state(), launcher::EmuState::Install | launcher::EmuState::Update));
 
     let ini = Ini::load(&psp::ini_path()).unwrap_or_default();
@@ -119,6 +156,7 @@ pub fn demo() -> St {
         query: String::new(),
         psp_setting: String::new(),
         pad_name: Some("Generic USB Gamepad".into()),
+        err: None,
     }
 }
 

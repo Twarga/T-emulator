@@ -14,6 +14,7 @@ import { ConsoleInfo, RecentCard, GameTile, EmuRow, SetRow, XmbCategory } from "
 import { Launcher } from "launcher/launcher.slint";
 import { Psp } from "psp.slint";
 import { Toast } from "widgets.slint";
+import { ErrCard } from "errcard.slint";
 
 export { ConsoleInfo, RecentCard, GameTile, EmuRow, SetRow, XmbCategory, XmbItem } from "types.slint";
 
@@ -45,6 +46,9 @@ export component App inherits Window {
     in property <bool> attn;
     in property <string> playing-title;
     in property <string> boot-name;
+    in property <string> err-title: "";
+    in property <string> err-msg: "";
+    in property <[string]> err-opts;
 
     // ── navigation state ──
     in-out property <int> mode: 0;        // 0 launcher, 1 boot, 2 shell
@@ -60,6 +64,7 @@ export component App inherits Window {
     in-out property <int> psp-item: 0;
     in-out property <bool> psp-sheet: false;
     in-out property <int> psp-sheet-sel: 0;
+    in-out property <int> err-sel: 0;
     in property <int> psp-sheet-cur: 0;
     in property <string> psp-sheet-title;
     in-out property <float> boot: 0;
@@ -76,6 +81,8 @@ export component App inherits Window {
     callback search-key(string) -> bool;
     callback psp-activate(int, int);
     callback psp-choice(int);
+    callback err-pick(int);
+    callback err-cancel();
 
     property <length> u: Math.min(root.width / 1280px, root.height / 800px) * 1px;
     property <int> rcnt: root.recents.length;
@@ -97,6 +104,16 @@ export component App inherits Window {
     }
 
     function nav(k: string) -> bool {
+        // ── error card: modal, eats everything ──
+        if (root.err-title != "") {
+            if (root.err-opts.length > 0) {
+                if (k == Key.LeftArrow) { root.err-sel = Math.mod(root.err-sel - 1 + root.err-opts.length, root.err-opts.length); root.sfx("tick"); return true; }
+                if (k == Key.RightArrow || k == Key.Tab) { root.err-sel = Math.mod(root.err-sel + 1, root.err-opts.length); root.sfx("tick"); return true; }
+                if (k == Key.Return || k == " ") { root.err-pick(root.err-sel); return true; }
+            }
+            if (k == Key.Escape || k == Key.Backspace) { root.err-cancel(); return true; }
+            return true; // swallow all other keys
+        }
         // ── boot veil ──
         if (root.mode == 1) {
             if (k == Key.Return || k == " ") { root.boot = 1; return true; }
@@ -372,6 +389,16 @@ export component App inherits Window {
                 color: #f5f7ffb4;
             }
         }
+    }
+
+    if root.err-title != "": ErrCard {
+        title: root.err-title;
+        msg: root.err-msg;
+        opts: root.err-opts;
+        sel: root.err-sel;
+        u: root.u;
+        pick(i) => { root.err-pick(i); }
+        cancel => { root.err-cancel(); }
     }
 
     Toast {

@@ -9,6 +9,33 @@ use slint::{ModelRc, VecModel};
 use std::path::PathBuf;
 
 /// Where the AppImage build keeps its config (PPSSPP uses XDG_CONFIG_HOME).
+/// True when the configured backend is Vulkan — including the default
+/// (PPSSPP ships Vulkan-first on Linux when the key is absent).
+pub fn backend_is_vulkan(ini: &Ini) -> bool {
+    match ini.get("Graphics", "GraphicsBackend") {
+        Some(v) => v.contains("VULKAN"),
+        None => true,
+    }
+}
+
+/// Any Vulkan ICD registered on the system (driver present).
+pub fn vulkan_available() -> bool {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let xdg = std::env::var("XDG_DATA_HOME").unwrap_or_else(|_| format!("{home}/.local/share"));
+    [
+        "/usr/share/vulkan/icd.d",
+        "/etc/vulkan/icd.d",
+        "/usr/local/share/vulkan/icd.d",
+        &format!("{xdg}/vulkan/icd.d"),
+    ]
+    .iter()
+    .any(|d| {
+        std::fs::read_dir(d)
+            .map(|it| it.flatten().any(|e| e.path().extension().is_some_and(|x| x == "json")))
+            .unwrap_or(false)
+    })
+}
+
 pub fn ini_path() -> PathBuf {
     let base = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)

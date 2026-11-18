@@ -170,23 +170,31 @@ fn main() -> anyhow::Result<()> {
     });
 
     // ── background event pump ──
+    // `pump` MUST outlive the block: dropping a Timer stops it.
+    let pump = slint::Timer::default();
     {
         let weak = app.as_weak();
         let st = st.clone();
         let txp = tx.clone();
-        let pump = slint::Timer::default();
         pump.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(80), move || {
             let Some(app) = weak.upgrade() else { return };
             while let Ok(ev) = rx.try_recv() {
-                eprintln!("[pump] ev {}", match &ev {
-                    Ev::Progress(_) => "progress", Ev::Installed(_) => "installed",
-                    Ev::Latest(_) => "latest", Ev::VersionProbe(_) => "version",
-                    Ev::GameExit => "gameexit", Ev::FolderPicked(_) => "folder",
-                    Ev::Key(_) => "key", Ev::CoversDone => "covers",
-                    Ev::Pad(_) => "pad", Ev::ToastHide => "toast",
-                });
+                // Keys are dispatched outside the borrow: key callbacks
+                // (sfx, nav, toasts) borrow st themselves — holding it here
+                // would panic on RefCell re-entry.
+                if let Ev::Key(c) = ev {
+                    let s: SharedString = c.to_string().into();
+                    app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed {
+                        text: s.clone(),
+                    });
+                    app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased {
+                        text: s,
+                    });
+                    continue;
+                }
                 let mut b = st.borrow_mut();
                 match ev {
+                    Ev::Key(_) => unreachable!("handled above the borrow"),
                     Ev::Progress(f) => {
                         b.emu.progress = f;
                     }
@@ -239,18 +247,8 @@ fn main() -> anyhow::Result<()> {
                         toast(&app, "Games folder updated", -1.0, &txp, 2000);
                     }
                     Ev::FolderPicked(None) => {}
-                    Ev::Key(c) => {
-                        let s: SharedString = c.to_string().into();
-                        app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed {
-                            text: s.clone(),
-                        });
-                        app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased {
-                            text: s,
-                        });
-                    }
                     Ev::CoversDone => {} // refresh() below re-reads cover paths
                     Ev::Pad(name) => {
-                        eprintln!("[pad] Ev::Pad -> {name:?}");
                         let was = b.pad_name.clone();
                         b.pad_name = name.clone();
                         b.cfg.pad_name = name.clone();
@@ -272,10 +270,7 @@ fn main() -> anyhow::Result<()> {
     {
         let tx = tx.clone();
         std::thread::spawn(move || {
-            let mut g = match gilrs::Gilrs::new() {
-                Ok(g) => { eprintln!("[pad] gilrs ok"); g }
-                Err(e) => { eprintln!("[pad] gilrs FAILED: {e}"); return }
-            };
+            let Ok(mut g) = gilrs::Gilrs::new() else { return };
             let map = |b: gilrs::Button| -> Option<char> {
                 use gilrs::Button::*;
                 Some(match b {
@@ -295,11 +290,8 @@ fn main() -> anyhow::Result<()> {
             // announce pads already connected
             if let Some((_, p)) = g.gamepads().next() {
                 let name = p.name().to_string();
-                eprintln!("[pad] startup announce: {name}");
                 t_emulator::pads::ensure_all(&name);
                 let _ = tx.send(Ev::Pad(Some(name)));
-            } else {
-                eprintln!("[pad] startup: none");
             }
             loop {
                 while let Some(e) = g.next_event() {

@@ -61,16 +61,16 @@ export component Home inherits Rectangle {
         background: i + root.r == root.sel ? Lt.surface2 : Lt.surface;
         border-width: 2px;
         border-color: i + root.r == root.sel ? Lt.accent : #00000000;
-        opacity: c.available ? 1 : 0.55;
+        opacity: c.available ? 1 : 0.7;
         animate background, y, height { duration: 200ms; }
         TouchArea { clicked => { root.pick(i + root.r); } }
 
         Image {
             source: Icons.device(c.kind);
-            width: cw - 64 * root.u;
-            height: ch * 0.46;
-            x: 32 * root.u;
-            y: 24 * root.u;
+            width: cw - 48 * root.u;
+            height: ch * 0.6;
+            x: 24 * root.u;
+            y: 16 * root.u;
             image-fit: contain;
             opacity: c.available ? 0.95 : 0.5;
         }

@@ -47,8 +47,12 @@ accent    #ff5a2a   (ember — focus rings + primary actions ONLY)
 ok        #7dc98f   (installed/ready states)
 radii     12px cards, 6px chips
 fonts     IBM Plex Sans (UI), IBM Plex Mono (labels/paths/versions)
-covers    typographic tiles — one of 6 muted tones picked by title hash,
-          giant first-letter ghost, console tag top-left
+covers    real box art at PSP cover ratio (0.581) in one Tile component —
+          typographic fallback (6 tones by title hash) when no art exists.
+          Art comes from libretro-thumbnails into the data-dir cover cache
+          (`covers.rs`); bundled art for known games lives in assets/covers.
+consoles  real product photos (transparent PNG, soft shadow) in
+          assets/consoles — psp/ps3/gc/ps2, keyed by ConsoleInfo.kind.
 ```
 
 - **Home**: `CONTINUE` strip (up to 3 recents) + `CONSOLES` tile row

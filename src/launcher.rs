@@ -48,6 +48,7 @@ pub fn game_tiles(games: &[Game], query: &str) -> Vec<GameTile> {
             console: "PSP".into(),
             sub: g.size.clone().into(),
             tone: tone(&g.title),
+            letter: g.title.chars().next().unwrap_or('·').into(),
         })
         .collect()
 }
@@ -66,6 +67,7 @@ pub fn recent_cards(cfg: &Config, games: &[Game]) -> Vec<RecentCard> {
                 title: g.title.clone().into(),
                 ago: Config::ago(*ts).into(),
                 tone: tone(&g.title),
+                letter: g.title.chars().next().unwrap_or('·').into(),
             });
         }
     }

@@ -96,7 +96,10 @@ fn main() -> anyhow::Result<()> {
         query: String::new(),
         psp_setting: String::new(),
     }));
-    st.borrow_mut().games = scanner::scan(&st.borrow().dir);
+    st.borrow_mut().games = {
+        let dir = st.borrow().dir.clone();
+        scanner::scan(&dir)
+    };
 
     let (tx, rx) = channel::<Ev>();
     

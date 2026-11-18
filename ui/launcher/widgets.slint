@@ -17,7 +17,7 @@ export component Cover inherits Rectangle {
     in property <string> title;
     in property <string> console;
     in property <int> tone;
-    in property <bool> foc;
+    in property <string> letter;
     in property <length> u: 1px;
     background: Lt.tones[Math.mod(Math.max(0, root.tone), Lt.tones.length)];
     border-radius: Lt.r-sm;
@@ -27,7 +27,7 @@ export component Cover inherits Rectangle {
     Txt {
         x: parent.width - self.width - 10 * root.u;
         y: parent.height - self.height - 2 * root.u;
-        text: root.title != "" ? root.title : "·";
+        text: root.letter;
         font-size: 88 * root.u;
         font-weight: 600;
         color: #ffffff12;
@@ -57,40 +57,49 @@ export component KeyChip inherits Rectangle {
     in property <string> label;
     in property <length> u: 1px;
     height: 26 * u;
-    min-width: 26 * u;
+    width: Math.max(26 * u, (root.label.character-count * 8 + 16) * u);
     border-radius: 6 * u;
     background: Lt.surface2;
     border-width: 1px;
     border-color: Lt.line;
-    HorizontalLayout {
-        padding-left: 8 * u;
-        padding-right: 8 * u;
-        Mono {
-            text: root.label;
-            font-size: 12 * u;
-            color: Lt.text;
-            horizontal-alignment: center;
-        }
+    Mono {
+        width: parent.width;
+        height: parent.height;
+        text: root.label;
+        font-size: 12 * u;
+        color: Lt.text;
+        horizontal-alignment: center;
     }
 }
 
-export component LHint inherits HorizontalLayout {
+export component LHint inherits Rectangle {
     in property <string> key;
     in property <string> label;
     in property <length> u: 1px;
-    spacing: 8 * u;
-    KeyChip { label: root.key; u: root.u; }
+    width: root.chipw + 10 * u + root.lab;
+    property <length> chipw: Math.max(26 * u, (root.key.character-count * 8 + 16) * u);
+    property <length> lab: (root.label.character-count * 7.5 + 8) * u;
+    KeyChip {
+        x: 0;
+        y: (parent.height - self.height) / 2;
+        label: root.key;
+        u: root.u;
+    }
     Txt {
+        x: root.chipw + 10 * u;
+        width: root.lab;
+        height: parent.height;
         text: root.label;
         font-size: 13 * u;
         color: Lt.faint;
+        vertical-alignment: center;
+        overflow: elide;
     }
 }
 
 // ── pill action button ──
 export component Btn inherits Rectangle {
     in property <string> label;
-    in property <bool> hot;
     in property <bool> primary;
     in property <length> u: 1px;
     width: 118 * u;

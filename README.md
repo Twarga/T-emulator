@@ -1,82 +1,62 @@
 <div align="center">
 
-# 🎮 T-Emulator
+<img src="assets/banner.svg" alt="T-Emulator" width="100%"/>
 
-### Your PC. Every console. Their real menus.
+<br>
 
-**Pick a system. Get its actual interface. Play your games.**
-*The emulators run quietly underneath. You never see them.*
+![status](https://img.shields.io/badge/status-in%20development-4ea8ff?style=for-the-badge)
+![engine](https://img.shields.io/badge/built%20with-Rust%20%2B%20Slint-8a6bff?style=for-the-badge)
+![platform](https://img.shields.io/badge/platform-Linux%20%C2%B7%20Windows%20%C2%B7%20macOS-3ddc84?style=for-the-badge)
+
+<br>
+
+**Power on a console. Get its real menu. Play.**
+*The emulators handle themselves in the basement where they belong.*
 
 </div>
 
 ---
 
-## What is this?
+## 🌊 The idea
 
-Remember turning on a PSP and seeing that wave? The GameCube cube spinning? The PS3's glowing menu?
+Nobody makes menus like consoles did. The PSP's drifting wave. The GameCube's spinning cube. The PS3's glowing crossbar.
 
-T-Emulator brings all of that back. It's one app that lets you "power on" any console, see **its real menu**, browse your games inside it, and play. Behind the scenes, it quietly manages the emulators for you: installs them, updates them, configures them.
+**T-Emulator brings them back** — not as screenshots, but as the real interface you navigate. Pick a console, its menu takes over your screen, your games live inside it.
 
-You get the console experience. Not the emulator windows.
+The emulator doing the work? You never see its window, its settings, or its name.
 
----
+## 🎮 What it does
 
-## ✨ How it works
-
-```
-You open T-Emulator
-        │
-        ▼
-┌───────────────────────────┐
-│   Pick a console to       │
-│   power on:               │
-│   PSP · PS3 · GC/Wii …    │
-└───────────┬───────────────┘
-            ▼
-   The real menu fills the screen
-   (the XMB wave, the cube, all of it)
-            │
-            ▼
-   Pick a game → it plays
-   Quit → back in the menu
-```
-
-It feels like owning every console. It's actually one app.
-
----
-
-## 🚀 What it does for you
-
-- **Zero setup** — emulators download, update, and configure themselves
-- **Real console menus** — not approximations; the actual wave, the actual menus, fullscreen
-- **All your games in one place** — scanned, covered, organized
-- **Play with a controller** — everything designed for the couch
-- **One settings hub** — never open an emulator's ugly config again
-
----
-
-## 🗺️ Roadmap
-
-| Stage | What you get |
+|  |  |
 |---|---|
-| **Now building** | PSP + the XMB menu, end to end |
-| Next | PS3 (hello, MGS4), GameCube/Wii, PS2, PS1, Xbox 360 |
-| Later | PS5, Switch 2 (when their emulators are ready), saves manager, achievements, homebrew store |
+| **🕹️ Real console menus** | XMB, GameCube menu, dashboards — fullscreen, faithful, yours to browse |
+| **📦 Zero setup** | Emulators download, update, and configure themselves |
+| **📚 One library** | Every game across every system, scanned and covered |
+| **🎛️ One controller** | Mapped once, works everywhere, couch-first navigation |
+| **🔧 One settings hub** | Never open an emulator's config screen again |
 
-Follow progress in [`PLAN.md`](PLAN.md) and [`V0.1_PLAN.md`](V0.1_PLAN.md).
+## 🚀 The journey
+
+```
+v0.1   PSP  + XMB wave           ◄━━━ building now
+v0.3   PS3  + firmware wizard      (MGS4 lives here)
+v0.4   GC/Wii + system menu
+v0.5   PS2 · PS1 · Xbox 360
+later  PS5 · Switch 2 · saves · achievements · homebrew store
+```
+
+## ⚖️ The one rule
+
+**Your games, your dumps.** T-Emulator never downloads commercial games, and never will. The built-in store is homebrew and freeware only.
+
+## 📖 Docs
+
+[Master Plan](PLAN.md) · [UI Spec](UI_SPEC.md) · [v0.1 Build Plan](V0.1_PLAN.md)
 
 ---
-
-## ⚖️ A note on games
-
-T-Emulator plays **your** game files. It never downloads commercial games for you, and never will. Homebrew and freeware only in the built-in store.
-
----
-
-## 🛠️ Built with
-
-Rust · Slint (native UI, no webview) · stock emulators underneath
 
 <div align="center">
-<sub>Early development. Star it if you want to watch it grow. ⭐</sub>
+<sub>Built with Rust + Slint · native UI, zero webview</sub>
+<br>
+<sub>⭐ Star to follow the build</sub>
 </div>

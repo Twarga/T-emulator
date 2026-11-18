@@ -280,8 +280,11 @@ fn main() -> anyhow::Result<()> {
                     DPadRight => '\u{F703}',
                     South => '\u{000a}',
                     East => '\u{001b}',
-                    LeftTrigger => '\u{0019}',
-                    RightTrigger => '\t',
+                    // shoulders: prev/next section (L1/L2 back, R1/R2 fwd)
+                    LeftTrigger | LeftTrigger2 => '\u{0019}',
+                    RightTrigger | RightTrigger2 => '\t',
+                    Start => '\u{000a}',
+                    Select => '\u{001b}',
                     _ => return None,
                 })
             };

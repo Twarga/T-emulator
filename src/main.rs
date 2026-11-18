@@ -170,6 +170,16 @@ fn main() -> anyhow::Result<()> {
         });
     }
 
+    // ── self-update: newer T-Emulator release? download + relaunch ──
+    {
+        let tx = tx.clone();
+        let auto = st.borrow().cfg.update_check;
+        std::thread::spawn(move || {
+            if !auto { return }
+            let _ = tx.send(Ev::SelfUpdate(selfupdate::check(env!("CARGO_PKG_VERSION"))));
+        });
+    }
+
     // ── timers: clock + wave (wave only while inside a shell) ──
     let t0 = std::time::Instant::now();
     let hue = wave::hue_for_month(month());
@@ -241,8 +251,34 @@ fn main() -> anyhow::Result<()> {
                     }
                     Ev::Latest(l) => {
                         b.emu.check_done = true;
-                        b.emu.latest = l;
+                        b.emu.latest = l.clone();
+                        // hands-off: install on first run, update when behind
+                        let behind = match (&b.emu.version, &l) {
+                            (Some(v), Some(l)) => v != l,
+                            _ => false,
+                        };
+                        if b.cfg.update_check && !b.emu.installing
+                            && ((!b.emu.installed && l.is_some()) || behind)
+                        {
+                            if !b.emu.installed {
+                                toast(&app, "Setting up PPSSPP…", -1.0, &txp, 3000);
+                            } else {
+                                toast(&app, "Updating PPSSPP…", -1.0, &txp, 3000);
+                            }
+                            start_install(&mut b, &txp);
+                        }
                     }
+                    Ev::SelfUpdate(Some(bin)) => {
+                        toast(&app, "Update downloaded — restarting…", -1.0, &txp, 1800);
+                        let txu = txp.clone();
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(1600));
+                            let _ = selfupdate::apply_and_restart(&bin);
+                            let _ = txu.send(Ev::Quit);
+                        });
+                    }
+                    Ev::SelfUpdate(None) => {}
+                    Ev::Quit => { let _ = slint::quit_event_loop(); }
                     Ev::VersionProbe(v) => {
                         if b.emu.version.is_none() {
                             if let Some(v) = v {

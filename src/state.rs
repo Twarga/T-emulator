@@ -50,6 +50,8 @@ pub enum Ev {
     ToastHide,
     CoversDone,
     Pad(Option<String>),
+    SelfUpdate(Option<PathBuf>),
+    Quit,
 }
 
 pub struct St {

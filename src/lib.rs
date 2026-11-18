@@ -2,6 +2,7 @@ pub mod adapters;
 pub mod config;
 pub mod covers;
 pub mod pads;
+pub mod selfupdate;
 pub mod ini;
 pub mod launcher;
 pub mod psp;

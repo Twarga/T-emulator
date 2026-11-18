@@ -5,3 +5,4 @@ target/
 *.ppm
 t-emulator-v*
 t-emulator
+dist/

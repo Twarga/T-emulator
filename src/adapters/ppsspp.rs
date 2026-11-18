@@ -5,6 +5,16 @@ use std::process::{Child, Command};
 
 const RELEASE_API: &str = "https://api.github.com/repos/hrydgard/ppsspp/releases/latest";
 
+#[cfg(windows)]
+const ASSET_MATCH: &str = "Windows-x64.zip";
+#[cfg(not(windows))]
+const ASSET_MATCH: &str = "x86_64.AppImage";
+
+#[cfg(windows)]
+const BIN_NAME: &str = "PPSSPPWindows64.exe";
+#[cfg(not(windows))]
+const BIN_NAME: &str = "PPSSPP.AppImage";
+
 /// Latest release info: (tag_name, appimage url, size bytes).
 pub struct Release {
     pub tag: String,
@@ -21,7 +31,7 @@ impl Ppsspp {
     }
 
     pub fn binary(&self) -> PathBuf {
-        self.dir.join("PPSSPP.AppImage")
+        self.dir.join(BIN_NAME)
     }
 
     pub fn is_installed(&self) -> bool {
@@ -46,11 +56,11 @@ impl Ppsspp {
             .as_array()
             .and_then(|a| {
                 a.iter().find(|x| {
-                    x["name"].as_str().map(|n| n.contains("x86_64") && n.ends_with("AppImage")).unwrap_or(false)
+                    x["name"].as_str().map(|n| n.ends_with(ASSET_MATCH)).unwrap_or(false)
                 })
             })
             .and_then(|x| x["browser_download_url"].as_str().map(str::to_string))
-            .context("no x86_64 AppImage in latest release")?;
+            .context("no matching asset in latest release")?;
         let tag = body["tag_name"].as_str().unwrap_or("").to_string();
         Ok(Release { tag, url })
     }
@@ -83,7 +93,7 @@ impl Ppsspp {
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(0);
 
-        let tmp = self.dir.join("PPSSPP.AppImage.part");
+        let tmp = self.dir.join(if cfg!(windows) { "ppsspp.zip.part" } else { "PPSSPP.AppImage.part" });
         let mut out = std::io::BufWriter::new(std::fs::File::create(&tmp)?);
         let mut reader = resp.body_mut().as_reader();
         let mut chunk = vec![0u8; 256 * 1024];
@@ -102,9 +112,29 @@ impl Ppsspp {
         out.flush()?;
         drop(out);
 
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o755))?;
-        std::fs::rename(&tmp, self.binary())?;
+        #[cfg(windows)]
+        {
+            let f = std::fs::File::open(&tmp)?;
+            let mut z = zip::ZipArchive::new(f)?;
+            for i in 0..z.len() {
+                let mut e = z.by_index(i)?;
+                let Some(name) = e.enclosed_name() else { continue };
+                let dest = self.dir.join(&name);
+                if e.is_dir() {
+                    std::fs::create_dir_all(&dest)?;
+                } else {
+                    if let Some(d) = dest.parent() { std::fs::create_dir_all(d)?; }
+                    std::io::copy(&mut e, &mut std::fs::File::create(&dest)?)?;
+                }
+            }
+            let _ = std::fs::remove_file(&tmp);
+        }
+        #[cfg(not(windows))]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o755))?;
+            std::fs::rename(&tmp, self.binary())?;
+        }
         Ok(rel.tag)
     }
 

@@ -39,26 +39,52 @@ fn start_install(st: &mut St, tx: &Sender<Ev>) {
 
 fn pick_games_folder(tx: Sender<Ev>) {
     std::thread::spawn(move || {
-        // zenity first, kdialog as fallback; both already on the system.
-        let out = std::process::Command::new("zenity")
-            .args(["--file-selection", "--directory", "--title=Choose your games folder"])
-            .output()
-            .ok()
-            .filter(|o| o.status.success())
-            .or_else(|| {
-                std::process::Command::new("kdialog")
-                    .args(["--getexistingdirectory", &dirs_home()])
-                    .output()
-                    .ok()
-                    .filter(|o| o.status.success())
-            });
-        let dir = out
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .map(|s| PathBuf::from(s.trim()));
+        let d = pick_dir_dialog();
+        let dir = (!d.is_empty()).then(|| PathBuf::from(d));
         let _ = tx.send(Ev::FolderPicked(dir));
     });
 }
 
+fn open_dir(p: &std::path::Path) {
+    #[cfg(windows)]
+    let _ = std::process::Command::new("explorer").arg(p).spawn();
+    #[cfg(not(windows))]
+    let _ = std::process::Command::new("xdg-open").arg(p).spawn();
+}
+
+#[cfg(not(windows))]
+fn pick_dir_dialog() -> String {
+    // zenity first, kdialog as fallback; both already on the system.
+    let out = std::process::Command::new("zenity")
+        .args(["--file-selection", "--directory", "--title=Choose your PSP games folder"])
+        .output();
+    match out {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).trim().to_string(),
+        _ => std::process::Command::new("kdialog")
+            .args(["--getexistingdirectory", &dirs_home()])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_default(),
+    }
+}
+
+#[allow(dead_code)] // used on Windows builds
+#[cfg(windows)]
+fn pick_dir_dialog() -> String {
+    // PowerShell folder browser — no extra deps, always present on Win10+.
+    let out = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-Command",
+               "Add-Type -A System.Windows.Forms; $d=New-Object System.Windows.Forms.FolderBrowserDialog; if($d.ShowDialog() -eq 'OK'){$d.SelectedPath}"])
+        .output();
+    out.ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default()
+}
+
+#[allow(dead_code)] // only the Linux dialog uses it
 fn dirs_home() -> String {
     directories::BaseDirs::new()
         .map(|b| b.home_dir().display().to_string())
@@ -494,7 +520,7 @@ fn main() -> anyhow::Result<()> {
     app.on_open_folder({
         let st = st.clone();
         move || {
-            let _ = std::process::Command::new("xdg-open").arg(&st.borrow().dir).spawn();
+            open_dir(&st.borrow().dir);
         }
     });
 
